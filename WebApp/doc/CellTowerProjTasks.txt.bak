@@ -1,0 +1,29 @@
+1. Database
+	- Set up server - Kevin
+	- Determine how many tables to create - Richard
+		- Ticket table
+		- User Table
+		- Working-Log Table
+		- Region Table
+	-Note: Geolocation Data Format - Kevin
+		- Output or Input
+2. Python Webapp server - Richard
+	- How to deploy restful service - TBD
+	- How to connect to database - TBD
+	- How to develop application - TBD
+3. Developing application
+	- How to recieve, parse and save ticket to database
+	- How to login to Webapp
+	- How to query ticket
+		- Autoquery every ~1 min
+		- Manual query available to End User
+	- How to update ticket
+	- How to Manually create ticket & upload to database
+4. Testing
+	- Function Testing
+	- Load Test
+	- Distaster Recovery
+		- Database Regular Backup
+		- Explore local browser store
+5. Prepare MVP version for Demo features
+6. Prepare Beta Version

@@ -1,0 +1,14 @@
+<html>
+    <head>
+        <title>{{ title }}</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename = 'mystyle.css') }}">
+    </head>
+    <body>
+        <h1>Title h1</h1>
+        <ul>
+        {% for member in members: %}
+        <li>{{ member }}</li>
+	{% endfor %}
+	</ul>
+    </body>
+</html>
