@@ -1,5 +1,6 @@
 import csv
 
+
 def space_delimiter(Str, Select):
     '''
     returns either the portion of the string before the first " " in the string or everything after
@@ -24,6 +25,49 @@ def space_delimiter(Str, Select):
     else:
         return "Invalid Select in space_delimiter in ticket_parse.py"
 
+
+
+"POINT"+"("+'{row["TowerLattitude"]} {row["TowerLongitude"]}'+")"
+
+def ticket_parse_temp(filename_in):
+    '''
+    Reads in and parses filename_in to create a more parsable ticket format for database.
+    *Only temporary placeholder function until specific details are worked out
+
+    ticket_parse_temp: Str => Str
+    '''
+    outputtext = ""
+    with open(filename_in, "r") as ct_ticket:
+        csv_reader = csv.reader(ct_ticket, delimiter = ",")
+        line_count = 0
+
+        for row in csv_reader:
+            if line_count == 0:
+               line_count = line_count+1
+            else:
+                if outputtext == "":
+                    outputtext == outputtext + f'INSERT INTO public.ctt_tickets(\nticket_id, \"TowerID\",\
+                         \"TowerStreet\", \"ModuleID\", \"ErrorCode\", \"ErrorDetails\", \"ErrorDateTime\",\
+                          \"AssignedUser_ID\", \"AssignedDateTime\", \"Ticket_Status\", \"CompletedDateTime\",\
+                           \"Longitude\", \"Latitude\", geom)\nVALUES (gen_random_uuid(),\
+                            \'{row["TowerID"]}\', \'{row["TowerStreet"]}\',\
+                             \'{row["Equipment"]}\', \'\', \'{row["Message"]}\',\
+                                \'{row["RegDate"]}\', \'\', \'{row["RegDate"]}\', \'0\',\
+                                    \'\', \'{row["TowerLattitude"]}\', \'{row["TowerLongitude"]}\',\
+                                     \'POINT'+"("+'{row["TowerLattitude"]} {row["TowerLongitude"]}'+")"+'\' );'
+                else:
+                    outputtext == outputtext + f'\n\nINSERT INTO public.ctt_tickets(\nticket_id, \"TowerID\",\
+                         \"TowerStreet\", \"ModuleID\", \"ErrorCode\", \"ErrorDetails\", \"ErrorDateTime\",\
+                          \"AssignedUser_ID\", \"AssignedDateTime\", \"Ticket_Status\", \"CompletedDateTime\",\
+                           \"Longitude\", \"Latitude\", geom)\nVALUES (gen_random_uuid(),\
+                            \'{row["TowerID"]}\', \'{row["TowerStreet"]}\',\
+                             \'{row["Equipment"]}\', \'\', \'{row["Message"]}\',\
+                                \'{row["RegDate"]}\', \'\', \'{row["RegDate"]}\', \'0\',\
+                                    \'\', \'{row["TowerLattitude"]}\', \'{row["TowerLongitude"]}\',\
+                                     \'POINT'+"("+'{row["TowerLattitude"]} {row["TowerLongitude"]}'+")"+'\' );'
+    print(outputtext)
+    pass
+'''
 class ticket:
     def __init__(self, Msg, ModuleID, TowerID_Street, Timestamp, Lat, Long):
         self.message = Msg
@@ -48,5 +92,5 @@ class ticket:
             self.timestamp == other.timestamp and\
             self.lat == other.lat and\
             self.long == other.long
-    
-    
+
+'''
