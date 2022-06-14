@@ -4,17 +4,20 @@
 
 CREATE TABLE IF NOT EXISTS public.ctt_tickets
 (
-    ticket_id uuid[] NOT NULL,
+    ticket_id uuid NOT NULL,
     "TowerID" character varying(100) COLLATE pg_catalog."default",
-    "TowerLocation" character varying(100) COLLATE pg_catalog."default",
-    "EquipmentID" character varying(100) COLLATE pg_catalog."default",
+    "TowerStreet" character varying(100) COLLATE pg_catalog."default",
+    "ModuleID" character varying(100) COLLATE pg_catalog."default",
     "ErrorCode" character varying(100) COLLATE pg_catalog."default",
     "ErrorDetails" character varying(2000) COLLATE pg_catalog."default",
-    "ErrordDateTime" timestamp with time zone,
+    "ErrorDateTime" character varying(100) COLLATE pg_catalog."default",
     "AssignedUser_ID" character varying(30) COLLATE pg_catalog."default",
-    "AssignedDateTime" timestamp with time zone,
+    "AssignedDateTime" character varying(100) COLLATE pg_catalog."default",
     "Ticket_Status" character varying(30) COLLATE pg_catalog."default",
-    "CompletedDateTime" timestamp with time zone,
+    "CompletedDateTime" character varying(100) COLLATE pg_catalog."default",
+    "Longitude" character varying(100) COLLATE pg_catalog."default",
+    "Latitude" character varying(100) COLLATE pg_catalog."default",
+    geom geometry,
     CONSTRAINT ctt_tickets_pkey PRIMARY KEY (ticket_id)
 )
 
