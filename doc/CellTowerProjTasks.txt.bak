@@ -1,11 +1,11 @@
 1. Database
 	- Set up server - Kevin Done
-	- Determine how many tables to create - Richard In progress
+	- Determine how many tables to create - Richard Done
 		- Ticket table
 		- User Table
 		- Working-Log Table
 		- Region Table
-	-Note: Geolocation Data Format - Kevin In progress
+	-Note: Geolocation Data Format - Kevin Done
 		- figure out geolocation datatype/Format
 			- Data from tower is in .csv format: Source: Error Msg, Module Id, Tower ID and Street Location, Date and Time, Latitude, Longitude
 			- Latitude and Longitude are in Decimal degree format to 6 digits (four after decimal place)
@@ -16,6 +16,17 @@
 	- How to deploy restful service -  Done
 	- How to connect to database - Done
 	- How to develop application - Done
+2.5. Practice SQL update, delete, select - Kevin
+	- Online tutorial
+	- Quick, Easy
+2.6. Research Frontend Framework - Kevin
+	- AngularJS
+	- React
+	- Look for GIS capability
+2.7. Setup local python webapp server - Kevin
+	- HTML
+	- CSS
+	- Javascript
 3. Developing application
 	- How to recieve, parse and save ticket to database
 	- How to login to Webapp
