@@ -16,18 +16,27 @@
 	- How to deploy restful service -  Done
 	- How to connect to database - Done
 	- How to develop application - Done
-2.5. Practice SQL update, delete, select - Kevin
+2.5. Practice SQL update, delete, select - Kevin Done
 	- Online tutorial
 	- Quick, Easy
-2.6. Research Frontend Framework - Kevin
+2.6. Research Frontend Framework - Kevin Done
 	- AngularJS
 	- React
 	- Look for GIS capability
-2.7. Setup local python webapp server - Kevin
+2.7. Setup local python webapp server - Kevin 
 	- HTML
 	- CSS
 	- Javascript
-3. Developing application
+3.1. Develop login app
+	- make email address unique in database
+3.2. Develop ticket reciever
+	- json format
+3.3. Develop ticket app
+	- List tickets
+	- View single ticket details
+	- Update ticket status	
+	- Display ticket in map view
+3a. Developing application 
 	- How to recieve, parse and save ticket to database
 	- How to login to Webapp
 	- How to query ticket
