@@ -13,7 +13,9 @@ def login():
    if request.method == 'POST':
       session['email'] = request.form['email']
       session['password'] = request.form['password']
+      session['authenticationtoken'] = False
       if authenticate(session['email'], session['password']):
+        session['authenticationtoken'] = True
         return redirect(url_for('tickets'))
    return """
    <form action = "/login" method = "post">
@@ -62,13 +64,17 @@ def home():
 
 @app.route('/tickets')
 def tickets():
-    return "Ticket List\n" + "<b><a href = '/logout'>click here to log out</a></b>"
+    if session['authenticationtoken']:
+        return "Ticket List\n" + "<b><a href = '/logout'>click here to log out</a></b>"
+    return redirect(url_for("login"))
+    
 
 @app.route('/logout')
 def logout():
    # remove the email and password from the session if it is there
    session.pop('email', None)
    session.pop('password', None)
+   session.pop('authenticationtoken', False)
    return redirect(url_for('home'))
 
 
