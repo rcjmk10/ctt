@@ -1,29 +1,83 @@
-# Python 3 server example
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import time
+from collections import UserDict, UserList
+from operator import methodcaller
+from flask import Flask, render_template, request, redirect, \
+url_for, flash, make_response, session, jsonify
+from flask import render_template
+import psycopg2
 
-hostName = "localhost"
-serverPort = 8080
+app = Flask(__name__)
+app.secret_key = "any random string"
 
-class MyServer(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(bytes("<html><head><title>https://pythonbasics.org</title></head>", "utf-8"))
-        self.wfile.write(bytes("<p>Request: %s</p>" % self.path, "utf-8"))
-        self.wfile.write(bytes("<body>", "utf-8"))
-        self.wfile.write(bytes("<p>This is an example web server.</p>", "utf-8"))
-        self.wfile.write(bytes("</body></html>", "utf-8"))
+@app.route('/login', methods = ['GET', 'POST'])
+def login():
+   if request.method == 'POST':
+      session['email'] = request.form['email']
+      session['password'] = request.form['password']
+      session['authenticationtoken'] = False
+      if authenticate(session['email'], session['password']):
+        session['authenticationtoken'] = True
+        return redirect(url_for('tickets'))
+   return """
+   <form action = "/login" method = "post">
+      <label for="email">Email:</label>
+      <p><input type = "text" name = "email"/></p>
+      <label for="password">Password:</label>
+      <p><input type = "password" name = "password"/></p>
+      <p><input type = submit value = "Login"/></p>
+   </form>	
+""" 
 
-if __name__ == "__main__":        
-    webServer = HTTPServer((hostName, serverPort), MyServer)
-    print("Server started http://%s:%s" % (hostName, serverPort))
-
+def authenticate(id, passw):
+    conn = None
+    local_content=""
     try:
-        webServer.serve_forever()
-    except KeyboardInterrupt:
-        pass
+        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+        cur = conn.cursor()
 
-    webServer.server_close()
-    print("Server stopped.")
+        #Statement Execution
+        print('PostgreSQL vers:')
+        cur.execute('SELECT * from public.ctt_users WHERE \"EmailAddr\" = \'' + id + '\'')
+
+        #Consolidate info from query
+        local_users = cur.fetchall()
+        '''
+        for localuser in local_users:
+            local_content=local_content+", "+str(localuser[0])+", "+str(localuser[1])+", "+str(localuser[2])
+            '''
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+            print('Database connection closed.')
+    if len(local_users) == 1:
+        print(UserList)
+        return True
+    else:
+        print(UserList)
+        return False
+
+@app.route('/')
+def home():
+    return "Not Logged in,\n" + "<b><a href = '/login'>click here to log in</a></b>"
+
+@app.route('/tickets')
+def tickets():
+    if session['authenticationtoken']:
+        return "Ticket List\n" + "<b><a href = '/logout'>click here to log out</a></b>"
+    return redirect(url_for("login"))
+    
+
+@app.route('/logout')
+def logout():
+   # remove the email and password from the session if it is there
+   session.pop('email', None)
+   session.pop('password', None)
+   session.pop('authenticationtoken', False)
+   return redirect(url_for('home'))
+
+
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=80,debug = True)
