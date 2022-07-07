@@ -6,3 +6,8 @@ body {
     color: navy;
     margin-left: 20px;
   }
+  .class1 {
+    color: purple;
+    font-size: 12pt;
+    font-style: bold;
+  }

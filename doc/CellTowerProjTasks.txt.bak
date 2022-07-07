@@ -28,9 +28,9 @@
 	- CSS
 	- Javascript
 3.1. Develop login app
-	- make email address unique in database
+	- make email address unique in database - Done
 3.2. Develop ticket reciever
-	- json format
+	- json format - ?
 3.3. Develop ticket app
 	- List tickets
 	- View single ticket details

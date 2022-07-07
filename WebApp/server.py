@@ -1,6 +1,7 @@
 from collections import UserDict, UserList
 import json
 from operator import methodcaller
+from threading import local
 from flask import Flask, render_template, request, redirect, \
 url_for, flash, make_response, session, jsonify
 from flask import render_template
@@ -32,6 +33,50 @@ def space_delimiter(Str, Select):
         return str1
     else:
         return "Invalid Select in space_delimiter in ticket_parse.py"
+
+ticketlisttemplate = '''
+        <tr>
+            <td>
+                {0}
+            </td>
+            <td>
+                {1}
+            </td>
+            <td>
+                {2}
+            </td>
+            <td>
+                {3}
+            </td>
+            <td>
+                {4}
+            </td>
+            <td>
+                {5}
+            </td>
+            <td>
+                {6}
+            </td>
+            <td>
+                {4}
+            </td>
+            <td>
+                {6}
+            </td>
+            <td>
+                0
+            </td>
+            <td>
+                {6}
+            </td>
+            <td>
+                {7}
+            </td>
+            <td>
+                {8}
+            </td>
+        </tr>
+'''
 
 
 
@@ -66,7 +111,7 @@ def authenticate(id, passw):
         cur.execute('SELECT * from public.ctt_users WHERE \"EmailAddr\" = \'' + id + '\'')
 
         #Consolidate info from query
-        local_users = cur.fetchall()
+        local_content = cur.fetchall()
         '''
         for localuser in local_users:
             local_content=local_content+", "+str(localuser[0])+", "+str(localuser[1])+", "+str(localuser[2])
@@ -78,11 +123,11 @@ def authenticate(id, passw):
         if conn is not None:
             conn.close()
             print('Database connection closed.')
-    if len(local_users) == 1:
-        print(UserList)
+    if len(local_content) == 1:
+        print(local_content)
         return True
     else:
-        print(UserList)
+        print("nope")
         return False
 
 @app.route('/')
@@ -91,8 +136,77 @@ def home():
 
 @app.route('/tickets')
 def tickets():
+    logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
     if session['authenticationtoken']:
-        return "Ticket List\n" + "<b><a href = '/logout'>click here to log out</a></b>"
+        conn = None
+        local_content=""
+        try:
+            conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+            cur = conn.cursor()
+
+            #Statement Execution
+            print('PostgreSQL vers:')
+            cur.execute('SELECT * from ctt_tickets')
+
+            #Consolidate info from query
+            local_content = cur.fetchall()
+
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
+        finally:
+            if conn is not None:
+                conn.close()
+                print('Database connection closed.')
+                print(local_content[0])
+            ticketlisthtml = ""
+            for row in local_content:
+                ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                row[4], row[5], row[6], row[-3], row[-2])
+            return "Ticket List\n" + logout_link + '''
+            <html>
+                <table border="1" align="center">
+                    <tr>
+                        <td>
+                            TicketID
+                        </td>
+                        <td>
+                            TowerID
+                        </td>
+                        <td>
+                            TowerStreet
+                        </td>
+                        <td>
+                            ModuleID
+                        </td>
+                        <td>
+                            ErrorCode
+                        </td>
+                        <td>
+                            ErrorDetails
+                        </td>
+                        <td>
+                            ErrorDateTime
+                        </td>
+                        <td>
+                            AssignedUser_ID
+                        </td>
+                        <td>
+                            AssignedDateTime
+                        </td>
+                        <td>
+                            Ticket_Status
+                        </td>
+                        <td>
+                            CompletedDateTime
+                        </td>
+                        <td>
+                            Longitude
+                        </td>
+                        <td>
+                            Latitude
+                        </td>
+                    </tr>
+            ''' + ticketlisthtml
     return redirect(url_for("login"))
     
 
@@ -111,7 +225,7 @@ def process_json():
 
     content_type = request.headers.get('Content-Type')
     if (content_type == 'application/json'):
-        template = 'INSERT INTO public.ctt_tickets(\nticket_id, \"TowerID\",\
+        template = 'INSERT INTO ctt_tickets(\nticket_id, \"TowerID\",\
 \"TowerStreet\", \"ModuleID\", \"ErrorCode\", \"ErrorDetails\", \"ErrorDateTime\",\
 \"AssignedUser_ID\", \"AssignedDateTime\", \"Ticket_Status\", \"CompletedDateTime\",\
 \"Longitude\", \"Latitude\", geom)\nVALUES (gen_random_uuid(),\
@@ -145,6 +259,8 @@ def process_json():
 
             #Statement Execution
             cur.execute(insertcommand)
+            conn.commit()
+            cur.close()
 
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
@@ -152,7 +268,7 @@ def process_json():
             if conn is not None:
                 conn.close()
                 print('Database connection closed.')
-            return "completed"
+            return insertcommand
     else:
         return 'Content-Type not supported!'
 
