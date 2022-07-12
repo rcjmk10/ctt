@@ -2,6 +2,7 @@ from collections import UserDict, UserList
 import json
 from operator import methodcaller
 from threading import local
+from turtle import update
 from flask import Flask, render_template, request, redirect, \
 url_for, flash, make_response, session, jsonify
 from flask import render_template
@@ -34,6 +35,8 @@ def space_delimiter(Str, Select):
     else:
         return "Invalid Select in space_delimiter in ticket_parse.py"
 
+#hyperlink might use for adding ticket to worklist function: <b><a href = "">txt</a></b>
+
 ticketlisttemplate = '''
         <tr>
             <td>
@@ -58,22 +61,25 @@ ticketlisttemplate = '''
                 {6}
             </td>
             <td>
-                {4}
-            </td>
-            <td>
-                {6}
-            </td>
-            <td>
-                0
-            </td>
-            <td>
-                {6}
-            </td>
-            <td>
                 {7}
             </td>
             <td>
                 {8}
+            </td>
+            <td>
+                {9}
+            </td>
+            <td>
+                {10}
+            </td>
+            <td>
+                {11}
+            </td>
+            <td>
+                {12}
+            </td>
+            <td>
+                <input type=button value="assign to myself" onclick="window.open('/tickets/addtoworklist?ticketid={0}')">
             </td>
         </tr>
 '''
@@ -125,18 +131,21 @@ def authenticate(id, passw):
             print('Database connection closed.')
     if len(local_content) == 1:
         print(local_content)
+        print("uuid = " + (local_content[0])[0])
+        session['uuid'] = (local_content[0])[0]
         return True
     else:
-        print("nope")
+        print("Invalid Login, Authentication Failed")
         return False
 
 @app.route('/')
 def home():
     return "Not Logged in,\n" + "<b><a href = '/login'>click here to log in</a></b>"
 
-@app.route('/tickets')
+@app.route('/tickets', methods = ['POST', 'GET'])
 def tickets():
-    logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+    logout_link = "<b><a href = '/logout'>click here to log out</a></b>" + "\n"
+    worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
     if session['authenticationtoken']:
         conn = None
         local_content=""
@@ -161,8 +170,8 @@ def tickets():
             ticketlisthtml = ""
             for row in local_content:
                 ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
-                row[4], row[5], row[6], row[-3], row[-2])
-            return "Ticket List\n" + logout_link + '''
+                row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
+            return "Ticket List\n" + worklist_link + logout_link + '''
             <html>
                 <table border="1" align="center">
                     <tr>
@@ -272,6 +281,104 @@ def process_json():
     else:
         return 'Content-Type not supported!'
 
+@app.route('/tickets/worklist', methods = ['POST', 'GET'])
+def worklist():
+    logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+    if session['authenticationtoken']:
+        conn = None
+        local_content=""
+        try:
+            conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+            cur = conn.cursor()
+
+            #Statement Execution
+            print('PostgreSQL vers:')
+            cur.execute('SELECT * from ctt_tickets WHERE \"AssignedUser_ID\" = \''+session['uuid']+'\'')
+
+            #Consolidate info from query
+            local_content = cur.fetchall()
+
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
+        finally:
+            if conn is not None:
+                conn.close()
+                print('Database connection closed.')
+                print(local_content)
+            ticketlisthtml = ""
+            for row in local_content:
+                ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
+            return "Assigned Tickets\n" + logout_link + '''
+            <html>
+                <table border="1" align="center">
+                    <tr>
+                        <td>
+                            TicketID
+                        </td>
+                        <td>
+                            TowerID
+                        </td>
+                        <td>
+                            TowerStreet
+                        </td>
+                        <td>
+                            ModuleID
+                        </td>
+                        <td>
+                            ErrorCode
+                        </td>
+                        <td>
+                            ErrorDetails
+                        </td>
+                        <td>
+                            ErrorDateTime
+                        </td>
+                        <td>
+                            AssignedUser_ID
+                        </td>
+                        <td>
+                            AssignedDateTime
+                        </td>
+                        <td>
+                            Ticket_Status
+                        </td>
+                        <td>
+                            CompletedDateTime
+                        </td>
+                        <td>
+                            Longitude
+                        </td>
+                        <td>
+                            Latitude
+                        </td>
+                    </tr>
+            ''' + ticketlisthtml
+    return redirect(url_for("login"))
+
+
+@app.route('/tickets/addtoworklist', methods = ['POST', 'GET'])
+def add_to_worklist():
+    update_query = "UPDATE public.ctt_tickets\nSET \"AssignedUser_ID\" = \'{0}\'\nWHERE \"ticket_id\" = \'{1}\';".format(session["uuid"], request.args.get("ticketid"))
+    print(update_query)
+    conn = None
+    try:
+        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+        cur = conn.cursor()
+
+        #Statement Execution
+        print('PostgreSQL vers:')
+        cur.execute(update_query)
+        conn.commit()
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+            print('Database connection closed.')
+    return redirect(url_for("tickets"))
+        
 
 
 if __name__ == "__main__":

@@ -23,19 +23,24 @@
 	- AngularJS
 	- React
 	- Look for GIS capability
-2.7. Setup local python webapp server - Kevin 
+2.7. Setup local python webapp server - Kevin Done
 	- HTML
 	- CSS
 	- Javascript
 3.1. Develop login app
 	- make email address unique in database - Done
-3.2. Develop ticket reciever
-	- json format - ?
-3.3. Develop ticket app
+3.2. Develop ticket reciever Done
+	- json format
+3.3. Develop ticket app 
 	- List tickets
-	- View single ticket details
+		- Filter by user assigned ticket - Done
+		- Add ticket to worklist
+		- Show 10 closest unassigned tickets
+	- worklist - Done
+	- View single ticket details - 
 	- Update ticket status	
 	- Display ticket in map view
+	- completed tickets list
 3a. Developing application 
 	- How to recieve, parse and save ticket to database
 	- How to login to Webapp

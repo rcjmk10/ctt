@@ -72,4 +72,3 @@ def parsejson(filename_in):
     fout.write(insertcommand)
     fout.close()
     return None
-    
