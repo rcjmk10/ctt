@@ -1,0 +1,4 @@
+SELECT *, ST_Distance('POINT(43.3964 2.123)', concat('POINT(', "Longitude", ' ', "Latitude", ')')) AS l_distance FROM ctt_tickets\
+--WHERE longitude\
+ORDER BY ST_Distance('POINT(43.3964 2.123)', concat('POINT(', "Longitude", ' ', "Latitude", ')')) ASC\
+limit 10

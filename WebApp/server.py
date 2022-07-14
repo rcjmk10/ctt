@@ -11,6 +11,10 @@ import psycopg2
 app = Flask(__name__)
 app.secret_key = "any random string"
 
+Userlat = 0
+Userlong = 0
+logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+
 def space_delimiter(Str, Select):
     '''
     returns either the portion of the string before the first " " in the string or everything after
@@ -35,7 +39,6 @@ def space_delimiter(Str, Select):
     else:
         return "Invalid Select in space_delimiter in ticket_parse.py"
 
-#hyperlink might use for adding ticket to worklist function: <b><a href = "">txt</a></b>
 
 ticketlisttemplate = '''
         <tr>
@@ -148,6 +151,7 @@ def tickets():
     worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
     if session['authenticationtoken']:
         conn = None
+        user_location=""
         local_content=""
         try:
             conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
@@ -171,7 +175,31 @@ def tickets():
             for row in local_content:
                 ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
                 row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
-            return "Ticket List\n" + worklist_link + logout_link + '''
+            return "Ticket List\n" + worklist_link + "\n" + '''
+            <button onclick="getLocation()">Click to get closest tickets</button>
+
+            <p id="demo"></p>
+
+            <script>
+            var x = document.getElementById("demo");
+
+            function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition);
+            } else { 
+                x.innerHTML = "Geolocation is not supported by this browser.";
+            }
+            }
+
+            function showPosition(position) {
+            var localurl = "/getnewticket?latitude="+position.coords.latitude+"&longitude="+position.coords.longitude;
+            window.open(localurl);
+            x.innerHTML = "Latitude: " + position.coords.latitude + 
+            "<br>Longitude: " + position.coords.longitude;
+            }
+            </script>
+            ''' +\
+             logout_link + '''
             <html>
                 <table border="1" align="center">
                     <tr>
@@ -217,7 +245,7 @@ def tickets():
                     </tr>
             ''' + ticketlisthtml
     return redirect(url_for("login"))
-    
+
 
 @app.route('/logout')
 def logout():
@@ -283,7 +311,7 @@ def process_json():
 
 @app.route('/tickets/worklist', methods = ['POST', 'GET'])
 def worklist():
-    logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+    
     if session['authenticationtoken']:
         conn = None
         local_content=""
@@ -309,7 +337,8 @@ def worklist():
             for row in local_content:
                 ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
                 row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
-            return "Assigned Tickets\n" + logout_link + '''
+            return "Assigned Tickets\n" + logout_link + "\n" + "<b><a href = '/tickets'>Ticket List</a></b>" + "\n"\
+            + '''
             <html>
                 <table border="1" align="center">
                     <tr>
@@ -378,6 +407,87 @@ def add_to_worklist():
             conn.close()
             print('Database connection closed.')
     return redirect(url_for("tickets"))
+
+@app.route('/getnewticket')
+def getnewticket():
+    latitude = request.args.get("latitude")
+    longitude = request.args.get("longitude")
+    selectquery = '''
+    SELECT *, ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) AS l_distance FROM ctt_tickets\
+    ORDER BY ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) ASC\
+    limit 10
+    '''.format(latitude, longitude)
+    print(selectquery)
+    local_content = ""
+    conn = None
+    try:
+        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+        cur = conn.cursor()
+
+        #Statement Execution
+        print('PostgreSQL vers:')
+        cur.execute(selectquery)
+        local_content = cur.fetchall()
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+
+    finally:
+        if conn is not None:
+            conn.close()
+            print('Database connection closed.')
+            ticketlisthtml = ""
+            for row in local_content:
+                ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                row[4], row[5], row[6], row[7], row[8], row[9], row[-5], row[-4], row[-3])
+            return "Assigned Tickets\n" + logout_link + '''
+            <html>
+                <table border="1" align="center">
+                    <tr>
+                        <td>
+                            TicketID
+                        </td>
+                        <td>
+                            TowerID
+                        </td>
+                        <td>
+                            TowerStreet
+                        </td>
+                        <td>
+                            ModuleID
+                        </td>
+                        <td>
+                            ErrorCode
+                        </td>
+                        <td>
+                            ErrorDetails
+                        </td>
+                        <td>
+                            ErrorDateTime
+                        </td>
+                        <td>
+                            AssignedUser_ID
+                        </td>
+                        <td>
+                            AssignedDateTime
+                        </td>
+                        <td>
+                            Ticket_Status
+                        </td>
+                        <td>
+                            CompletedDateTime
+                        </td>
+                        <td>
+                            Longitude
+                        </td>
+                        <td>
+                            Latitude
+                        </td>
+                    </tr>
+            ''' + ticketlisthtml
+    return redirect(url_for("tickets"))
+
+    return request.args.get("latitude") + "\n" + request.args.get("longitude")
         
 
 
