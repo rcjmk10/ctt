@@ -87,6 +87,53 @@ ticketlisttemplate = '''
         </tr>
 '''
 
+ticketlisttemplateworklist = '''
+        <tr>
+            <td>
+                {0}
+            </td>
+            <td>
+                {1}
+            </td>
+            <td>
+                {2}
+            </td>
+            <td>
+                {3}
+            </td>
+            <td>
+                {4}
+            </td>
+            <td>
+                {5}
+            </td>
+            <td>
+                {6}
+            </td>
+            <td>
+                {7}
+            </td>
+            <td>
+                {8}
+            </td>
+            <td>
+                {9}
+            </td>
+            <td>
+                {10}
+            </td>
+            <td>
+                {11}
+            </td>
+            <td>
+                {12}
+            </td>
+            <td>
+                <input type=button value="Update Status" onclick="window.open('/tickets/modifyticket?ticketid={0}')">
+            </td>
+        </tr>
+'''
+
 
 
 @app.route('/login', methods = ['GET', 'POST'])
@@ -335,7 +382,7 @@ def worklist():
                 print(local_content)
             ticketlisthtml = ""
             for row in local_content:
-                ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                ticketlisthtml = ticketlisthtml + ticketlisttemplateworklist.format(row[0], row[1], row[2], row[3], \
                 row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
             return "Assigned Tickets\n" + logout_link + "\n" + "<b><a href = '/tickets'>Ticket List</a></b>" + "\n"\
             + '''
@@ -414,6 +461,7 @@ def getnewticket():
     longitude = request.args.get("longitude")
     selectquery = '''
     SELECT *, ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) AS l_distance FROM ctt_tickets\
+    WHERE \"AssignedUser_ID\" = \'\'
     ORDER BY ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) ASC\
     limit 10
     '''.format(latitude, longitude)
@@ -486,10 +534,32 @@ def getnewticket():
                     </tr>
             ''' + ticketlisthtml
     return redirect(url_for("tickets"))
-
-    return request.args.get("latitude") + "\n" + request.args.get("longitude")
         
+@app.route('/tickets/modifyticket')
+def completeticket():
+    ticketid = request.args.get("ticketid")
+    conn = None
+    update_query = '''
+    UPDATE public.ctt_tickets
+	SET  \"Ticket_Status\"=1
+	WHERE "ticket_id"=\'{0}\';
+    '''.format(ticketid)
+    try:
+        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+        cur = conn.cursor()
 
+        #Statement Execution
+        print('PostgreSQL vers:')
+        cur.execute(update_query)
+        conn.commit()
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+            print('Database connection closed.')
+    return redirect(url_for("worklist"))
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80,debug = True)
