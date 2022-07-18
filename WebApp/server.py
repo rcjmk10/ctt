@@ -40,6 +40,7 @@ def space_delimiter(Str, Select):
         return "Invalid Select in space_delimiter in ticket_parse.py"
 
 
+
 ticketlisttemplate = '''
         <tr>
             <td>
@@ -536,6 +537,55 @@ def getnewticket():
     return redirect(url_for("tickets"))
         
 @app.route('/tickets/modifyticket')
+def modifyticket():
+    logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+    worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
+    ticketlist_link = "<b><a href = '/tickets'>All Tickets</a></b>"
+    ticketid = request.args.get("ticketid")
+    table = '''
+    Ticket ID = {0}
+    <table border="1" align="center">
+        <tr>
+            <td>
+            Ticket Comments
+            </td>
+            <td>
+            Date
+            </td>
+        </tr>
+    '''.format(ticketid)
+    conn = None
+    Local_Content = ""
+    try:
+        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+        cur = conn.cursor()
+
+        #Statement Execution
+        print('PostgreSQL vers:')
+        cur.execute('SELECT * FROM ctt_ticket_details WHERE \"ticket_id\" = '+ticketid)
+
+        Local_Content = cur.fetchall()
+        for row in Local_Content:
+            table = table + '''
+            <tr>
+                <td>
+                {0}
+                </td>
+                <td>
+                {1}
+                </td>
+            </tr>
+            '''.format(row[1], row[2])
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+            print('Database connection closed.')
+    #TODO add return to ticketlist/worklist button and add comment button with date autofill
+    return worklist_link + "\n" + ticketlist_link + "\n" + logout_link + "\n" + table
+
 def completeticket():
     ticketid = request.args.get("ticketid")
     conn = None
@@ -560,6 +610,8 @@ def completeticket():
             conn.close()
             print('Database connection closed.')
     return redirect(url_for("worklist"))
+
+#@app.route('/tickets/ticketdetails')
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80,debug = True)
