@@ -132,6 +132,9 @@ ticketlisttemplateworklist = '''
             <td>
                 <input type=button value="Update Status" onclick="window.open('/tickets/modifyticket?ticketid={0}')">
             </td>
+            <td>
+                <input type=button value="Mark as Complete" onclick="window.open('/tickets/modifyticket/complete?ticketid={0}')">
+            </td>
         </tr>
 '''
 
@@ -541,6 +544,7 @@ def modifyticket():
     logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
     worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
     ticketlist_link = "<b><a href = '/tickets'>All Tickets</a></b>"
+    add_comment_button = "<input type=button value=\"Add Comment\" onclick=\"window.open('/tickets/modifyticket/addcomment?ticketid={0}')\">"
     ticketid = request.args.get("ticketid")
     table = '''
     Ticket ID = {0}
@@ -583,9 +587,20 @@ def modifyticket():
         if conn is not None:
             conn.close()
             print('Database connection closed.')
-    #TODO add return to ticketlist/worklist button and add comment button with date autofill
+    #TODO add comment button with date autofill
     return worklist_link + "\n" + ticketlist_link + "\n" + logout_link + "\n" + table
 
+@app.route("/tickets/modifyticket/addcomment")
+def addcomment():
+    return '''
+    <div id="current_date"></p>
+    <script>
+    document.getElementById("current_date").innerHTML = Date();
+    </script>
+
+    '''
+
+@app.route("/tickets/modifyticket/complete")
 def completeticket():
     ticketid = request.args.get("ticketid")
     conn = None
@@ -610,8 +625,6 @@ def completeticket():
             conn.close()
             print('Database connection closed.')
     return redirect(url_for("worklist"))
-
-#@app.route('/tickets/ticketdetails')
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80,debug = True)

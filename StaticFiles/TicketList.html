@@ -1,0 +1,7 @@
+<select id="status_1fa61f6c-739c-4f7a-a0bc-23a132e9d298">
+    <option value="0">Just Assigned</option>
+    <option value="10" selected>Work In Progress</option>
+    <option value="20">Pending Information</option>
+    <option value="100">Completed</option>
+</select>
+<input type="button" onclick="var new_status_val=document.getElementById('status_1fa61f6c-739c-4f7a-a0bc-23a132e9d298').value; alert('/tickets/modifyticket?ticketid=1fa61f6c-739c-4f7a-a0bc-23a132e9d298&ticket_status='+new_status_val)" value="test">

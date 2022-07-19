@@ -34,10 +34,16 @@
 3.3. Develop ticket app 
 	- List tickets
 		- Filter by user assigned ticket - Done
-		- Add ticket to worklist
-		- Show 10 closest unassigned tickets
+		- Add ticket to worklist - Done
+		- Show 10 closest unassigned tickets - Done
+		- Remove ticket from worklist -> Update Ticket Status
 	- worklist - Done
 	- View single ticket details - 
+		- View single ticket comments+date of comments
+		- Add dropdown to change ticket status
+		- Add form to add comments
+			- get date when comment is submitted via button/link
+			- insert comment+date into ctt_ticket_details
 	- Update ticket status	
 	- Display ticket in map view
 	- completed tickets list
