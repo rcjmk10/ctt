@@ -4,4 +4,12 @@
     <option value="20">Pending Information</option>
     <option value="100">Completed</option>
 </select>
-<input type="button" onclick="var new_status_val=document.getElementById('status_1fa61f6c-739c-4f7a-a0bc-23a132e9d298').value; alert('/tickets/modifyticket?ticketid=1fa61f6c-739c-4f7a-a0bc-23a132e9d298&ticket_status='+new_status_val)" value="test">
+
+<!--<input type="button" onclick="var new_status_val=document.getElementById('status_1fa61f6c-739c-4f7a-a0bc-23a132e9d298').value; alert('/tickets/modifyticket?ticketid=1fa61f6c-739c-4f7a-a0bc-23a132e9d298&ticket_status='+new_status_val)" value="test">-->
+
+<input type="text" id="comment" name="comment"><br><br>
+<button onclick = "
+var new_status_val=document.getElementById('status_1fa61f6c-739c-4f7a-a0bc-23a132e9d298').value;
+var comment = document.getElementById('comment').value;
+alert('/tickets/modifyticket?ticketid=1fa61f6c-739c-4f7a-a0bc-23a132e9d298&ticket_status='+new_status_val+'&comment='+comment+'&date=Thu Jul 21 2022 15:21:12 GMT-0400 (Eastern Daylight Time)');">Submit</button>
+

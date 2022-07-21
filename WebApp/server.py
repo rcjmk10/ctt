@@ -541,11 +541,14 @@ def getnewticket():
         
 @app.route('/tickets/modifyticket')
 def modifyticket():
+    ticketid = request.args.get("ticketid")
     logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
     worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
     ticketlist_link = "<b><a href = '/tickets'>All Tickets</a></b>"
-    add_comment_button = "<input type=button value=\"Add Comment\" onclick=\"window.open('/tickets/modifyticket/addcomment?ticketid={0}')\">"
-    ticketid = request.args.get("ticketid")
+    add_comment_button = '''<input type=button value=\"Add Comment\" onclick=\"window.open('/tickets/modifyticket/addcomment?ticketid={0}&date='+Date())\">
+    <script>
+    document.getElementById("current_date").innerHTML = Date();
+    </script>'''.format(ticketid)
     table = '''
     Ticket ID = {0}
     <table border="1" align="center">
@@ -555,6 +558,9 @@ def modifyticket():
             </td>
             <td>
             Date
+            </td>
+            <td>
+            Status
             </td>
         </tr>
     '''.format(ticketid)
@@ -566,7 +572,7 @@ def modifyticket():
 
         #Statement Execution
         print('PostgreSQL vers:')
-        cur.execute('SELECT * FROM ctt_ticket_details WHERE \"ticket_id\" = '+ticketid)
+        cur.execute("SELECT * FROM ctt_ticket_details WHERE \"ticket_id\" = \'"+ticketid+"\'")
 
         Local_Content = cur.fetchall()
         for row in Local_Content:
@@ -578,8 +584,11 @@ def modifyticket():
                 <td>
                 {1}
                 </td>
+                <td>
+                {2}
+                </td>
             </tr>
-            '''.format(row[1], row[2])
+            '''.format(row[1], row[2], row[3])
 
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
@@ -588,33 +597,56 @@ def modifyticket():
             conn.close()
             print('Database connection closed.')
     #TODO add comment button with date autofill
-    return worklist_link + "\n" + ticketlist_link + "\n" + logout_link + "\n" + table
+    return worklist_link + "\n" + ticketlist_link + "\n" + logout_link + "\n" + add_comment_button+ "\n" + table
 
 @app.route("/tickets/modifyticket/addcomment")
-def addcomment():
-    return '''
-    <div id="current_date"></p>
-    <script>
-    document.getElementById("current_date").innerHTML = Date();
-    </script>
-
-    '''
-
-@app.route("/tickets/modifyticket/complete")
-def completeticket():
+def addcommentpage():
+    date = request.args.get("date")
     ticketid = request.args.get("ticketid")
+    dropdown_status = '''
+    <select id="status_{0}">
+    <option value="0">Just Assigned</option>
+    <option value="10" selected>Work In Progress</option>
+    <option value="20">Pending Information</option>
+    <option value="100">Completed</option>
+    </select>
+
+    <input type="text" id="comment" name="comment"><br><br>
+
+    <button onclick = "
+    var new_status_val=document.getElementById('status_{0}').value;
+    var comment = document.getElementById('comment').value;
+    window.open('/tickets/modifyticket/addcomment/alterdata?ticketid={0}&ticket_status='+new_status_val+'&comment='+comment+'&date={1}');">Submit</button>  
+    '''.format(ticketid, date)
+    return dropdown_status
+
+@app.route("/tickets/modifyticket/addcomment/alterdata")
+def alterdata():
+    ticketid = request.args.get("ticketid")
+    date = request.args.get("date")
+    ticket_status = request.args.get("ticket_status")
+    comment = request.args.get("comment")
+
     conn = None
+    insert_query = '''
+    INSERT INTO public.ctt_ticket_details(
+	"ticket_id", "comments", "date", "ticket_status")
+	VALUES (\'{0}\', \'{1}\', \'{2}\', \'{3}\');
+    '''.format(ticketid, comment, date, ticket_status)
     update_query = '''
     UPDATE public.ctt_tickets
-	SET  \"Ticket_Status\"=1
-	WHERE "ticket_id"=\'{0}\';
-    '''.format(ticketid)
+    SET \"Ticket_Status\" = \'{1}\'
+    WHERE \"ticket_id\"=\'{0}\';
+    '''.format(ticketid, ticket_status)
     try:
         conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
         cur = conn.cursor()
 
         #Statement Execution
         print('PostgreSQL vers:')
+        print(insert_query)
+        print(update_query)
+        cur.execute(insert_query)
         cur.execute(update_query)
         conn.commit()
 
