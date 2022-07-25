@@ -3,10 +3,22 @@ import json
 from operator import methodcaller
 from threading import local
 from turtle import update
+from urllib.request import urlretrieve
 from flask import Flask, render_template, request, redirect, \
 url_for, flash, make_response, session, jsonify
 from flask import render_template
 import psycopg2
+
+'''
+all functions have redirect to login page if no authentication token or if authentication token is false.
+all functions as of 7/25/2022 have a redirect
+future functions will use following copy paste if/else statements cause its easier than one if statement and appending a return at the end of the function if the if statement returns false.:
+
+if not("authenticationtoken" in session) and not(session["authenticationtoken"]):
+    return redirect(url_for("login"))
+else:
+    #code here
+'''
 
 app = Flask(__name__)
 app.secret_key = "any random string"
@@ -14,6 +26,18 @@ app.secret_key = "any random string"
 Userlat = 0
 Userlong = 0
 logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+navbar = '''
+<ul>
+    <li><a href="/tickets">All Tickets</a></li>
+    <li><a href="/tickets/worklist">My Worklist</a></li>
+
+    <style>
+        li {
+            display: inline;
+        }
+    </style>
+</ul>
+'''
 
 def space_delimiter(Str, Select):
     '''
@@ -43,9 +67,9 @@ def space_delimiter(Str, Select):
 
 ticketlisttemplate = '''
         <tr>
-            <td>
+            <!--<td>
                 {0}
-            </td>
+            </td>-->
             <td>
                 {1}
             </td>
@@ -88,11 +112,11 @@ ticketlisttemplate = '''
         </tr>
 '''
 
-ticketlisttemplateworklist = '''
+ticketlisttemplateassigned = '''
         <tr>
-            <td>
+            <!--<td>
                 {0}
-            </td>
+            </td>-->
             <td>
                 {1}
             </td>
@@ -130,11 +154,109 @@ ticketlisttemplateworklist = '''
                 {12}
             </td>
             <td>
-                <input type=button value="Update Status" onclick="window.open('/tickets/modifyticket?ticketid={0}')">
+                Already Assigned
+            </td>
+        </tr>
+'''
+
+ticketlisttemplategetnewticket = '''
+        <tr>
+            <!--<td>
+                {0}
+            </td>-->
+            <td>
+                {1}
             </td>
             <td>
-                <input type=button value="Mark as Complete" onclick="window.open('/tickets/modifyticket/complete?ticketid={0}')">
+                {2}
             </td>
+            <td>
+                {3}
+            </td>
+            <td>
+                {4}
+            </td>
+            <td>
+                {5}
+            </td>
+            <!--<td>
+                {6}
+            </td>-->
+            <!--<td>
+                {7}
+            </td>-->
+            <!--<td>
+                {8}
+            </td>-->
+            <td>
+                {9}
+            </td>
+            <td>
+                {10}
+            </td>
+            <td>
+                {11}
+            </td>
+            <td>
+                {12}
+            </td>
+            <td>
+                {13}
+            </td>    
+            <td>
+                <input type=button value="assign to myself" onclick="window.open('/tickets/addtoworklist?ticketid={0}')">
+            </td>
+        </tr>
+'''
+
+ticketlisttemplateworklist = '''
+        <tr>
+            <!--<td>
+                {0}
+            </td>-->
+            <td>
+                {1}
+            </td>
+            <td>
+                {2}
+            </td>
+            <td>
+                {3}
+            </td>
+            <td>
+                {4}
+            </td>
+            <td>
+                {5}
+            </td>
+            <td>
+                {6}
+            </td>
+            <!--<td>
+                {7}
+            </td>-->
+            <td>
+                {8}
+            </td>
+            <td>
+                {9}
+            </td>
+            <td>
+                {10}
+            </td>
+            <td>
+                {11}
+            </td>
+            <td>
+                {12}
+            </td>
+            <td>
+                <input type=button value="Update Status" onclick="window.open('/tickets/modifyticket?ticketid={0}&date='+Date())\">
+                <script>
+                document.getElementById("current_date".innerHTML = Date();
+                </script>
+            </td>
+
         </tr>
 '''
 
@@ -148,7 +270,7 @@ def login():
       session['authenticationtoken'] = False
       if authenticate(session['email'], session['password']):
         session['authenticationtoken'] = True
-        return redirect(url_for('tickets'))
+        return redirect(url_for('worklist'))
    return """
    <form action = "/login" method = "post">
       <label for="email">Email:</label>
@@ -187,6 +309,7 @@ def authenticate(id, passw):
         print(local_content)
         print("uuid = " + (local_content[0])[0])
         session['uuid'] = (local_content[0])[0]
+        session['name'] = (local_content[0])[3] + " " + (local_content[0])[4]
         return True
     else:
         print("Invalid Login, Authentication Failed")
@@ -194,13 +317,13 @@ def authenticate(id, passw):
 
 @app.route('/')
 def home():
-    return "Not Logged in,\n" + "<b><a href = '/login'>click here to log in</a></b>"
+    return navbar + "<br" + "Not Logged in,\n" + "<b><a href = '/login'>click here to log in</a></b>"
 
 @app.route('/tickets', methods = ['POST', 'GET'])
 def tickets():
     logout_link = "<b><a href = '/logout'>click here to log out</a></b>" + "\n"
     worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
-    if session['authenticationtoken']:
+    if ("authenticationtoken" in session) and session['authenticationtoken']:
         conn = None
         user_location=""
         local_content=""
@@ -221,12 +344,28 @@ def tickets():
             if conn is not None:
                 conn.close()
                 print('Database connection closed.')
-                print(local_content[0])
+                #print(local_content[0])
             ticketlisthtml = ""
+
             for row in local_content:
-                ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
-                row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
-            return "Ticket List\n" + worklist_link + "\n" + '''
+                status = ""
+                if row[9] == "0":
+                    status = "Just Assigned"
+                elif row[9] == "10":
+                    status = "Work in Progress"
+                elif row[9] == "20":
+                    status = "Pending Info"
+                elif row[9] == "100":
+                    status = "Completed"
+                else:
+                    status = "err: invalid status value"
+                if row[7] == '':
+                    ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                    row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+                else:
+                    ticketlisthtml = ticketlisthtml + ticketlisttemplateassigned.format(row[0], row[1], row[2], row[3], \
+                    row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+            return navbar+ "<br>" + "Ticket List\n" + worklist_link + "\n" + '''
             <button onclick="getLocation()">Click to get closest tickets</button>
 
             <p id="demo"></p>
@@ -254,9 +393,9 @@ def tickets():
             <html>
                 <table border="1" align="center">
                     <tr>
-                        <td>
+                        <!--<td>
                             TicketID
-                        </td>
+                        </td>-->
                         <td>
                             TowerID
                         </td>
@@ -285,7 +424,7 @@ def tickets():
                             Ticket_Status
                         </td>
                         <td>
-                            CompletedDateTime
+                            UpdatedDateTime
                         </td>
                         <td>
                             Longitude
@@ -308,6 +447,7 @@ def logout():
 
 @app.route('/tickets/addnewticket', methods = ['POST'])
 def process_json():
+    #Not sure if authentication is necessary for this function
 
     conn = None
 
@@ -363,7 +503,7 @@ def process_json():
 @app.route('/tickets/worklist', methods = ['POST', 'GET'])
 def worklist():
     
-    if session['authenticationtoken']:
+    if ("authenticationtoken" in session) and session['authenticationtoken']:
         conn = None
         local_content=""
         try:
@@ -386,16 +526,25 @@ def worklist():
                 print(local_content)
             ticketlisthtml = ""
             for row in local_content:
+                status = ""
+                if row[9] == "0":
+                    status = "Just Assigned"
+                elif row[9] == "10":
+                    status = "Work in Progress"
+                elif row[9] == "20":
+                    status = "Pending Info"
+                elif row[9] == "100":
+                    status = "Completed"
                 ticketlisthtml = ticketlisthtml + ticketlisttemplateworklist.format(row[0], row[1], row[2], row[3], \
-                row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
-            return "Assigned Tickets\n" + logout_link + "\n" + "<b><a href = '/tickets'>Ticket List</a></b>" + "\n"\
+                row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+            return navbar + "<br>" + "Assigned Tickets\n" + logout_link + "\n" + "<b><a href = '/tickets'>Ticket List</a></b>" + "\n"\
             + '''
             <html>
                 <table border="1" align="center">
                     <tr>
-                        <td>
+                        <!--<td>
                             TicketID
-                        </td>
+                        </td>-->
                         <td>
                             TowerID
                         </td>
@@ -414,9 +563,9 @@ def worklist():
                         <td>
                             ErrorDateTime
                         </td>
-                        <td>
+                        <!--<td>
                             AssignedUser_ID
-                        </td>
+                        </td>-->
                         <td>
                             AssignedDateTime
                         </td>
@@ -424,7 +573,7 @@ def worklist():
                             Ticket_Status
                         </td>
                         <td>
-                            CompletedDateTime
+                            UpdatedDateTime
                         </td>
                         <td>
                             Longitude
@@ -439,224 +588,237 @@ def worklist():
 
 @app.route('/tickets/addtoworklist', methods = ['POST', 'GET'])
 def add_to_worklist():
-    update_query = "UPDATE public.ctt_tickets\nSET \"AssignedUser_ID\" = \'{0}\'\nWHERE \"ticket_id\" = \'{1}\';".format(session["uuid"], request.args.get("ticketid"))
-    print(update_query)
-    conn = None
-    try:
-        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
-        cur = conn.cursor()
+    if ("authenticationtoken" in session) and session["authenticationtoken"]:
+        update_query = "UPDATE public.ctt_tickets\nSET \"AssignedUser_ID\" = \'{0}\'\nWHERE \"ticket_id\" = \'{1}\';".format(session["name"], request.args.get("ticketid"))
+        print(update_query)
+        conn = None
+        try:
+            conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+            cur = conn.cursor()
 
-        #Statement Execution
-        print('PostgreSQL vers:')
-        cur.execute(update_query)
-        conn.commit()
+            #Statement Execution
+            print('PostgreSQL vers:')
+            cur.execute(update_query)
+            conn.commit()
 
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
-    finally:
-        if conn is not None:
-            conn.close()
-            print('Database connection closed.')
-    return redirect(url_for("tickets"))
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
+        finally:
+            if conn is not None:
+                conn.close()
+                print('Database connection closed.')
+        return redirect(url_for("tickets"))
+    return redirect(url_for("login"))
 
 @app.route('/getnewticket')
 def getnewticket():
-    latitude = request.args.get("latitude")
-    longitude = request.args.get("longitude")
-    selectquery = '''
-    SELECT *, ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) AS l_distance FROM ctt_tickets\
-    WHERE \"AssignedUser_ID\" = \'\'
-    ORDER BY ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) ASC\
-    limit 10
-    '''.format(latitude, longitude)
-    print(selectquery)
-    local_content = ""
-    conn = None
-    try:
-        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
-        cur = conn.cursor()
+    if ("authenticationtoken" in session) and session["authenticationtoken"]:
+        latitude = request.args.get("latitude")
+        longitude = request.args.get("longitude")
+        selectquery = '''
+        SELECT *, ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) AS l_distance FROM ctt_tickets\
+        WHERE \"AssignedUser_ID\" = \'\'
+        ORDER BY ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) ASC\
+        limit 10
+        '''.format(latitude, longitude)
+        #print(selectquery)
+        local_content = ""
+        conn = None
+        try:
+            conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+            cur = conn.cursor()
 
-        #Statement Execution
-        print('PostgreSQL vers:')
-        cur.execute(selectquery)
-        local_content = cur.fetchall()
+            #Statement Execution
+            print('PostgreSQL vers:')
+            cur.execute(selectquery)
+            local_content = cur.fetchall()
 
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
 
-    finally:
-        if conn is not None:
-            conn.close()
-            print('Database connection closed.')
-            ticketlisthtml = ""
-            for row in local_content:
-                ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
-                row[4], row[5], row[6], row[7], row[8], row[9], row[-5], row[-4], row[-3])
-            return "Assigned Tickets\n" + logout_link + '''
-            <html>
-                <table border="1" align="center">
-                    <tr>
-                        <td>
-                            TicketID
-                        </td>
-                        <td>
-                            TowerID
-                        </td>
-                        <td>
-                            TowerStreet
-                        </td>
-                        <td>
-                            ModuleID
-                        </td>
-                        <td>
-                            ErrorCode
-                        </td>
-                        <td>
-                            ErrorDetails
-                        </td>
-                        <td>
-                            ErrorDateTime
-                        </td>
-                        <td>
-                            AssignedUser_ID
-                        </td>
-                        <td>
-                            AssignedDateTime
-                        </td>
-                        <td>
-                            Ticket_Status
-                        </td>
-                        <td>
-                            CompletedDateTime
-                        </td>
-                        <td>
-                            Longitude
-                        </td>
-                        <td>
-                            Latitude
-                        </td>
-                    </tr>
-            ''' + ticketlisthtml
-    return redirect(url_for("tickets"))
+        finally:
+            if conn is not None:
+                conn.close()
+                print('Database connection closed.')
+                ticketlisthtml = ""
+                print(local_content)
+                for row in local_content:
+                    status = ""
+                    if row[9] == "0":
+                        status = "Just Assigned"
+                    elif row[9] == "10":
+                        status = "Work in Progress"
+                    elif row[9] == "20":
+                        status = "Pending Info"
+                    elif row[9] == "100":
+                        status = "Completed"
+                    ticketlisthtml = ticketlisthtml + ticketlisttemplategetnewticket.format(row[0], row[1], row[2], row[3], \
+                    row[4], row[5], row[6], row[7], row[8], row[-5], status, row[-4], row[-3], row[-1])
+                return navbar + "<br>" + "Closest 10 Tickets:\n" + logout_link + '''
+                <html>
+                    <table border="1" align="center">
+                        <tr>
+                            <!--<td>
+                                TicketID
+                            </td>-->
+                            <td>
+                                TowerID
+                            </td>
+                            <td>
+                                TowerStreet
+                            </td>
+                            <td>
+                                ModuleID
+                            </td>
+                            <td>
+                                ErrorCode
+                            </td>
+                            <td>
+                                ErrorDetails
+                            </td>
+                            <td>
+                                ErrorDateTime
+                            </td>
+                            <!--<td>
+                                AssignedUser_ID
+                            </td>-->
+                            <!--<td>
+                                AssignedDateTime
+                            </td>-->
+                            <td>
+                                Ticket_Status
+                            </td>
+                            <!--<td>
+                                CompletedDateTime
+                            </td>-->
+                            <td>
+                                Longitude
+                            </td>
+                            <td>
+                                Latitude
+                            </td>
+                            <td>
+                                Distance
+                            </td>
+                        </tr>
+                ''' + ticketlisthtml
+        return redirect(url_for("tickets"))
+    return redirect(url_for("login"))
         
 @app.route('/tickets/modifyticket')
 def modifyticket():
-    ticketid = request.args.get("ticketid")
-    logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
-    worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
-    ticketlist_link = "<b><a href = '/tickets'>All Tickets</a></b>"
-    add_comment_button = '''<input type=button value=\"Add Comment\" onclick=\"window.open('/tickets/modifyticket/addcomment?ticketid={0}&date='+Date())\">
-    <script>
-    document.getElementById("current_date").innerHTML = Date();
-    </script>'''.format(ticketid)
-    table = '''
-    Ticket ID = {0}
-    <table border="1" align="center">
-        <tr>
-            <td>
-            Ticket Comments
-            </td>
-            <td>
-            Date
-            </td>
-            <td>
-            Status
-            </td>
-        </tr>
-    '''.format(ticketid)
-    conn = None
-    Local_Content = ""
-    try:
-        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
-        cur = conn.cursor()
+    if ("authenticationtoken" in session) and session["authenticationtoken"]:   
+        ticketid = request.args.get("ticketid")
+        date = request.args.get("date")
+        dropdown_status = '''
+        <select id="status_{0}">
+        <option value="0">Just Assigned</option>
+        <option value="10" selected>Work In Progress</option>
+        <option value="20">Pending Information</option>
+        <option value="100">Completed</option>
+        </select>
 
-        #Statement Execution
-        print('PostgreSQL vers:')
-        cur.execute("SELECT * FROM ctt_ticket_details WHERE \"ticket_id\" = \'"+ticketid+"\'")
+        <input type="text" id="comment" name="comment"><br><br>
 
-        Local_Content = cur.fetchall()
-        for row in Local_Content:
-            table = table + '''
+        <button onclick = "
+        var new_status_val=document.getElementById('status_{0}').value;
+        var comment = document.getElementById('comment').value;
+        window.open('/tickets/modifyticket/addcomment/alterdata?ticketid={0}&ticket_status='+new_status_val+'&comment='+comment+'&date={1}');">Submit</button>  
+        '''.format(ticketid, date)
+        logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+        worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
+        ticketlist_link = "<b><a href = '/tickets'>All Tickets</a></b>"
+        
+        table = '''
+        Ticket ID = {0}
+        <table border="1" align="center">
             <tr>
                 <td>
-                {0}
+                Ticket Comments
                 </td>
                 <td>
-                {1}
+                Date
                 </td>
                 <td>
-                {2}
+                Status
                 </td>
             </tr>
-            '''.format(row[1], row[2], row[3])
+        '''.format(ticketid)
+        conn = None
+        Local_Content = ""
+        try:
+            conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+            cur = conn.cursor()
 
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
-    finally:
-        if conn is not None:
-            conn.close()
-            print('Database connection closed.')
-    #TODO add comment button with date autofill
-    return worklist_link + "\n" + ticketlist_link + "\n" + logout_link + "\n" + add_comment_button+ "\n" + table
+            #Statement Execution
+            print('PostgreSQL vers:')
+            cur.execute("SELECT * FROM ctt_ticket_details WHERE \"ticket_id\" = \'"+ticketid+"\'")
 
-@app.route("/tickets/modifyticket/addcomment")
-def addcommentpage():
-    date = request.args.get("date")
-    ticketid = request.args.get("ticketid")
-    dropdown_status = '''
-    <select id="status_{0}">
-    <option value="0">Just Assigned</option>
-    <option value="10" selected>Work In Progress</option>
-    <option value="20">Pending Information</option>
-    <option value="100">Completed</option>
-    </select>
+            Local_Content = cur.fetchall()
+            for row in Local_Content:
+                table = table + '''
+                <tr>
+                    <td>
+                    {0}
+                    </td>
+                    <td>
+                    {1}
+                    </td>
+                    <td>
+                    {2}
+                    </td>
+                </tr>
+                '''.format(row[1], row[2], row[3])
 
-    <input type="text" id="comment" name="comment"><br><br>
-
-    <button onclick = "
-    var new_status_val=document.getElementById('status_{0}').value;
-    var comment = document.getElementById('comment').value;
-    window.open('/tickets/modifyticket/addcomment/alterdata?ticketid={0}&ticket_status='+new_status_val+'&comment='+comment+'&date={1}');">Submit</button>  
-    '''.format(ticketid, date)
-    return dropdown_status
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
+        finally:
+            if conn is not None:
+                conn.close()
+                print('Database connection closed.')
+        #TODO add comment button with date autofill
+        return "navbar" + "<br" + worklist_link + "\n" + ticketlist_link + "\n" + logout_link + "<br>" + table + "<br>" + dropdown_status
+    return redirect(url_for("login"))
 
 @app.route("/tickets/modifyticket/addcomment/alterdata")
 def alterdata():
-    ticketid = request.args.get("ticketid")
-    date = request.args.get("date")
-    ticket_status = request.args.get("ticket_status")
-    comment = request.args.get("comment")
+    if ("authenticationtoken" in session) and session["authenticationtoken"]:
+        ticketid = request.args.get("ticketid")
+        date = request.args.get("date")
+        ticket_status = request.args.get("ticket_status")
+        comment = request.args.get("comment")
 
-    conn = None
-    insert_query = '''
-    INSERT INTO public.ctt_ticket_details(
-	"ticket_id", "comments", "date", "ticket_status")
-	VALUES (\'{0}\', \'{1}\', \'{2}\', \'{3}\');
-    '''.format(ticketid, comment, date, ticket_status)
-    update_query = '''
-    UPDATE public.ctt_tickets
-    SET \"Ticket_Status\" = \'{1}\'
-    WHERE \"ticket_id\"=\'{0}\';
-    '''.format(ticketid, ticket_status)
-    try:
-        conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
-        cur = conn.cursor()
+        conn = None
+        insert_query = '''
+        INSERT INTO public.ctt_ticket_details(
+        "ticket_id", "comments", "date", "ticket_status")
+        VALUES (\'{0}\', \'{1}\', \'{2}\', \'{3}\');
+        '''.format(ticketid, comment, date, ticket_status)
+        update_query = '''
+        UPDATE public.ctt_tickets
+        SET \"Ticket_Status\" = \'{1}\'
+        WHERE \"ticket_id\"=\'{0}\';
+        '''.format(ticketid, ticket_status)
+        try:
+            conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+            cur = conn.cursor()
 
-        #Statement Execution
-        print('PostgreSQL vers:')
-        print(insert_query)
-        print(update_query)
-        cur.execute(insert_query)
-        cur.execute(update_query)
-        conn.commit()
+            #Statement Execution
+            print('PostgreSQL vers:')
+            print(insert_query)
+            print(update_query)
+            cur.execute(insert_query)
+            cur.execute(update_query)
+            conn.commit()
 
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
-    finally:
-        if conn is not None:
-            conn.close()
-            print('Database connection closed.')
-    return redirect(url_for("worklist"))
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
+        finally:
+            if conn is not None:
+                conn.close()
+                print('Database connection closed.')
+        return redirect(url_for("worklist"))
+    return redirect(url_for("login"))
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80,debug = True)

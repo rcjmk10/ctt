@@ -45,7 +45,7 @@
 			- get date when comment is submitted via button/link
 			- insert comment+date into ctt_ticket_details
 	- Update ticket status	
-	- Display ticket in map view
+	- 
 	- completed tickets list
 3a. Developing application 
 	- How to recieve, parse and save ticket to database
@@ -55,6 +55,21 @@
 		- Manual query available to End User
 	- How to update ticket
 	- How to Manually create ticket & upload to database
+3b. Replace status number with string
+	- Change status numbers to text - Done
+	- Hide ticket Id -> change ticketid in to html comment - Done
+	- Replace assigned user id to show user's name/id - Done I think
+	- Hide assigned userid, updateddatetime, ticketstatus, assigned date in getclosesttickets page -Done
+	- Change completeddatetime to last updated time - Done I think
+	- Display ticket in map view - Google Maps API has fees
+	- Move add comment to update status page - Done
+	- Remove mark as complete column - Done
+	- Add distance column in get closest tickets page - Done
+	- Navigation Bar - Done
+	- make global redirect to login page when no authenticationtoken - Done
+	- after login go to worklist - Done
+	- remove assign to myself button from tickets that are already assigned - Done
+	- sort/organization for ticket page
 4. Testing
 	- Function Testing
 	- Load Test
