@@ -253,7 +253,7 @@ ticketlisttemplateworklist = '''
             <td>
                 <input type=button value="Update Status" onclick="window.open('/tickets/modifyticket?ticketid={0}&date='+Date())\">
                 <script>
-                document.getElementById("current_date".innerHTML = Date();
+                document.getElementById("current_date".innerHTML = Date());
                 </script>
             </td>
 
@@ -321,9 +321,252 @@ def home():
 
 @app.route('/tickets', methods = ['POST', 'GET'])
 def tickets():
+    sort = request.args.get("sort")
+    latitude = request.args.get("latitude")
+    longitude = request.args.get("longitude")
     logout_link = "<b><a href = '/logout'>click here to log out</a></b>" + "\n"
     worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
+    dropdown_sort = '''
+        <select id="sort">
+        <option value="0">Newest</option>
+        <option value="10">Distance</option>
+        </select>
+
+        <br><br>
+
+        <button onclick = "
+        var sort=document.getElementById('sort').value;
+        window.location.replace('/tickets?sort='+sort);">Sort</button>  
+        '''
     if ("authenticationtoken" in session) and session['authenticationtoken']:
+        
+        if sort=="0":
+            conn = None
+            local_content=""
+            try:
+                conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+                cur = conn.cursor()
+
+                #Statement Execution
+                print('PostgreSQL vers:')
+                cur.execute('SELECT * from ctt_tickets\nORDER BY "ErrorDateTime" DESC')
+
+                #Consolidate info from query
+                local_content = cur.fetchall()
+
+            except (Exception, psycopg2.DatabaseError) as error:
+                print(error)
+            finally:
+                if conn is not None:
+                    conn.close()
+                    print('Database connection closed.')
+                    #print(local_content[0])
+                ticketlisthtml = ""
+
+                for row in local_content:
+                    status = ""
+                    if row[9] == "0":
+                        status = "Just Assigned"
+                    elif row[9] == "10":
+                        status = "Work in Progress"
+                    elif row[9] == "20":
+                        status = "Pending Info"
+                    elif row[9] == "100":
+                        status = "Completed"
+                    else:
+                        status = "err: invalid status value"
+                    if row[7] == '':
+                        ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                        row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+                    else:
+                        ticketlisthtml = ticketlisthtml + ticketlisttemplateassigned.format(row[0], row[1], row[2], row[3], \
+                        row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+                return navbar+ "<br>" + "Ticket List\n" + worklist_link + dropdown_sort + "\n" + '''
+                <button onclick="getLocation()">Click to get closest tickets</button>
+
+                <p id="locate"></p>
+
+                <script>
+                var x = document.getElementById("locate");
+
+                function getLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(showPosition);
+                } else { 
+                    x.innerHTML = "Geolocation is not supported by this browser.";
+                }
+                }
+
+                function showPosition(position) {
+                var localurl = "/getnewticket?latitude="+position.coords.latitude+"&longitude="+position.coords.longitude;
+                window.open(localurl);
+                x.innerHTML = "Latitude: " + position.coords.latitude + 
+                "<br>Longitude: " + position.coords.longitude;
+                }
+                </script>
+                ''' +\
+                logout_link + '''
+                <html>
+                    <table border="1" align="center">
+                        <tr>
+                            <!--<td>
+                                TicketID
+                            </td>-->
+                            <td>
+                                TowerID
+                            </td>
+                            <td>
+                                TowerStreet
+                            </td>
+                            <td>
+                                ModuleID
+                            </td>
+                            <td>
+                                ErrorCode
+                            </td>
+                            <td>
+                                ErrorDetails
+                            </td>
+                            <td>
+                                ErrorDateTime
+                            </td>
+                            <td>
+                                AssignedUser_ID
+                            </td>
+                            <td>
+                                AssignedDateTime
+                            </td>
+                            <td>
+                                Ticket_Status
+                            </td>
+                            <td>
+                                UpdatedDateTime
+                            </td>
+                            <td>
+                                Latitude
+                            </td>
+                            <td>
+                                Longitude
+                            </td>
+                        </tr>
+                ''' + ticketlisthtml
+        elif sort == "10":
+            print("wat")
+            return redirect(url_for("getlocation"))
+        elif sort == "11":
+            latitude = request.args.get("latitude")
+            longitude = request.args.get("longitude")
+            
+            selectquery = '''
+            SELECT *, ST_Distance('POINT({0} {1})', concat('POINT(', "Latitude", ' ', "Longitude", ')')) AS l_distance FROM ctt_tickets\
+            ORDER BY ST_Distance('POINT({0} {1})', concat('POINT(', "Latitude", ' ', "Longitude", ')')) ASC
+            '''.format(latitude, longitude)
+            #print(selectquery)
+            local_content = ""
+            conn = None
+            try:
+                conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+                cur = conn.cursor()
+
+                #Statement Execution
+                print('PostgreSQL vers:')
+                cur.execute(selectquery)
+                local_content = cur.fetchall()
+
+            except (Exception, psycopg2.DatabaseError) as error:
+                print(error)
+
+            finally:
+                if conn is not None:
+                    conn.close()
+                    print('Database connection closed.')
+                    ticketlisthtml = ""
+                    print(local_content)
+                    for row in local_content:
+                        status = ""
+                        if row[9] == "0":
+                            status = "Just Assigned"
+                        elif row[9] == "10":
+                            status = "Work in Progress"
+                        elif row[9] == "20":
+                            status = "Pending Info"
+                        elif row[9] == "100":
+                            status = "Completed"
+                        if row[7] == '':
+                            ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                            row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+                        else:
+                            ticketlisthtml = ticketlisthtml + ticketlisttemplateassigned.format(row[0], row[1], row[2], row[3], \
+                            row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+                return navbar+ "<br>" + "Ticket List\n" + worklist_link + dropdown_sort + "\n" + '''
+                <button onclick="getLocation()">Click to get closest tickets</button>
+
+                <p id="demo"></p>
+
+                <script>
+                var x = document.getElementById("demo");
+
+                function getLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(showPosition);
+                } else { 
+                    x.innerHTML = "Geolocation is not supported by this browser.";
+                }
+                }
+
+                function showPosition(position) {
+                var localurl = "/getnewticket?latitude="+position.coords.latitude+"&longitude="+position.coords.longitude;
+                window.open(localurl);
+                x.innerHTML = "Latitude: " + position.coords.latitude + 
+                "<br>Longitude: " + position.coords.longitude;
+                }
+                </script>
+                ''' +\
+                logout_link + '''
+                <html>
+                    <table border="1" align="center">
+                        <tr>
+                            <!--<td>
+                                TicketID
+                            </td>-->
+                            <td>
+                                TowerID
+                            </td>
+                            <td>
+                                TowerStreet
+                            </td>
+                            <td>
+                                ModuleID
+                            </td>
+                            <td>
+                                ErrorCode
+                            </td>
+                            <td>
+                                ErrorDetails
+                            </td>
+                            <td>
+                                ErrorDateTime
+                            </td>
+                            <td>
+                                AssignedUser_ID
+                            </td>
+                            <td>
+                                AssignedDateTime
+                            </td>
+                            <td>
+                                Ticket_Status
+                            </td>
+                            <td>
+                                UpdatedDateTime
+                            </td>
+                            <td>
+                                Latitude
+                            </td>
+                            <td>
+                                Longitude
+                            </td>
+                        </tr>
+                ''' + ticketlisthtml
         conn = None
         user_location=""
         local_content=""
@@ -365,7 +608,7 @@ def tickets():
                 else:
                     ticketlisthtml = ticketlisthtml + ticketlisttemplateassigned.format(row[0], row[1], row[2], row[3], \
                     row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
-            return navbar+ "<br>" + "Ticket List\n" + worklist_link + "\n" + '''
+            return navbar+ "<br>" + "Ticket List\n" + worklist_link + dropdown_sort + "\n" + '''
             <button onclick="getLocation()">Click to get closest tickets</button>
 
             <p id="demo"></p>
@@ -427,10 +670,10 @@ def tickets():
                             UpdatedDateTime
                         </td>
                         <td>
-                            Longitude
+                            Latitude
                         </td>
                         <td>
-                            Latitude
+                            Longitude
                         </td>
                     </tr>
             ''' + ticketlisthtml
@@ -445,6 +688,34 @@ def logout():
    session.pop('authenticationtoken', False)
    return redirect(url_for('home'))
 
+@app.route('/getlocation')
+def getlocation():
+    return '''
+                <body onload="getLocation()">...Getting Location...</body>
+
+                <p id="locate"></p>
+
+                <script>
+                var x = document.getElementById("locate");
+
+                function getLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(showPosition);
+                } else { 
+                    x.innerHTML = "Geolocation is not supported by this browser.";
+                }
+                }
+
+                function showPosition(position) {
+                var localurl = "/tickets?sort=11&latitude="+position.coords.latitude+"&longitude="+position.coords.longitude;
+                window.location.replace(localurl);
+                x.innerHTML = "Latitude: " + position.coords.latitude + 
+                "<br>Longitude: " + position.coords.longitude;
+                }
+                </script>
+                ''' 
+
+
 @app.route('/tickets/addnewticket', methods = ['POST'])
 def process_json():
     #Not sure if authentication is necessary for this function
@@ -456,7 +727,7 @@ def process_json():
         template = 'INSERT INTO ctt_tickets(\nticket_id, \"TowerID\",\
 \"TowerStreet\", \"ModuleID\", \"ErrorCode\", \"ErrorDetails\", \"ErrorDateTime\",\
 \"AssignedUser_ID\", \"AssignedDateTime\", \"Ticket_Status\", \"CompletedDateTime\",\
-\"Longitude\", \"Latitude\", geom)\nVALUES (gen_random_uuid(),\
+\"Latitude\", \"Longitude\", geom)\nVALUES (gen_random_uuid(),\
 \'{0}\', \'{1}\',\
 \'{2}\', \'\', \'{3}\',\
 \'{4}\', \'\', \'{4}\', \'0\',\
@@ -506,6 +777,9 @@ def worklist():
     if ("authenticationtoken" in session) and session['authenticationtoken']:
         conn = None
         local_content=""
+        
+
+        locationlist = ""
         try:
             conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
             cur = conn.cursor()
@@ -526,6 +800,7 @@ def worklist():
                 print(local_content)
             ticketlisthtml = ""
             for row in local_content:
+                locationlist = locationlist + "[{0}, {1}, '{2}'], ".format(row[-3], row[-2], (row[2] + ", " + row[3] + ", " + row[5]))
                 status = ""
                 if row[9] == "0":
                     status = "Just Assigned"
@@ -535,9 +810,45 @@ def worklist():
                     status = "Pending Info"
                 elif row[9] == "100":
                     status = "Completed"
+                
                 ticketlisthtml = ticketlisthtml + ticketlisttemplateworklist.format(row[0], row[1], row[2], row[3], \
                 row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
-            return navbar + "<br>" + "Assigned Tickets\n" + logout_link + "\n" + "<b><a href = '/tickets'>Ticket List</a></b>" + "\n"\
+            print(locationlist)
+            mapview = "\
+    <script type=\"text/javascript\" src=\"https://www.gstatic.com/charts/loader.js\"></script>\
+    <script type=\"text/javascript\">\n\
+      google.charts.load(\"current\", {\n\
+        \"packages\":[\"map\"],\n\
+        // Note: you will need to get a mapsApiKey for your project.\n\
+        // See: https://developers.google.com/chart/interactive/docs/basic_load_libs#load-settings\n\
+        \"mapsApiKey\": \"AIzaSyCkae3VLDmnW7jFEIjJQ3e3rG-3NBq3ZQQ\"\n\
+      });\
+      google.charts.setOnLoadCallback(drawChart);\n\
+      function drawChart() {\n\
+        var data = google.visualization.arrayToDataTable([\
+          [\'Lat\', \'Long\', \'Name\'], " + locationlist + "\n\
+        ]);\n\
+\n\
+        var options = {\n\
+          icons: {\n\
+            default: {\n\
+              normal: \'https://icons.iconarchive.com/icons/icons-land/vista-map-markers/48/Map-Marker-Ball-Azure-icon.png\',\n\
+              selected: \'https://icons.iconarchive.com/icons/icons-land/vista-map-markers/48/Map-Marker-Ball-Right-Azure-icon.png\'\n\
+            }\n\
+          },\n\
+          showTooltip: true,\n\
+          showInfoWindow: true\n\
+\n\
+        };\n\
+\n\
+        var map = new google.visualization.Map(document.getElementById(\'map_markers_div\'));\n\
+        map.draw(data, options);\n\
+      }\n\
+\n\
+    </script>\n\
+\n\
+    <div id=\"map_markers_div\" style=\"width: 400px; height: 300px\"></div>"
+        return navbar + "<br>" + "Assigned Tickets\n" + logout_link + "<br>" + "<b><a href = '/tickets'>Ticket List</a></b>" + "<br>"\
             + '''
             <html>
                 <table border="1" align="center">
@@ -576,13 +887,13 @@ def worklist():
                             UpdatedDateTime
                         </td>
                         <td>
-                            Longitude
-                        </td>
-                        <td>
                             Latitude
                         </td>
+                        <td>
+                            Longitude
+                        </td>
                     </tr>
-            ''' + ticketlisthtml
+            ''' + ticketlisthtml + "<br>" + mapview
     return redirect(url_for("login"))
 
 
@@ -615,10 +926,11 @@ def getnewticket():
     if ("authenticationtoken" in session) and session["authenticationtoken"]:
         latitude = request.args.get("latitude")
         longitude = request.args.get("longitude")
+        
         selectquery = '''
-        SELECT *, ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) AS l_distance FROM ctt_tickets\
+        SELECT *, ST_Distance('POINT({0} {1})', concat('POINT(', "Latitude", ' ', "Longitude", ')')) AS l_distance FROM ctt_tickets\
         WHERE \"AssignedUser_ID\" = \'\'
-        ORDER BY ST_Distance('POINT({0} {1})', concat('POINT(', "Longitude", ' ', "Latitude", ')')) ASC\
+        ORDER BY ST_Distance('POINT({0} {1})', concat('POINT(', "Latitude", ' ', "Longitude", ')')) ASC\
         limit 10
         '''.format(latitude, longitude)
         #print(selectquery)
@@ -692,10 +1004,10 @@ def getnewticket():
                                 CompletedDateTime
                             </td>-->
                             <td>
-                                Longitude
+                                Latitude
                             </td>
                             <td>
-                                Latitude
+                                Longitude
                             </td>
                             <td>
                                 Distance
