@@ -349,7 +349,7 @@ def tickets():
 
                 #Statement Execution
                 print('PostgreSQL vers:')
-                cur.execute('SELECT * from ctt_tickets\nORDER BY "ErrorDateTime" DESC')
+                cur.execute('SELECT * from ctt_tickets\nORDER BY CAST("ErrorDateTime" as TIMESTAMP WITH TIME ZONE) DESC')
 
                 #Consolidate info from query
                 local_content = cur.fetchall()
