@@ -112,6 +112,106 @@ ticketlisttemplate = '''
         </tr>
 '''
 
+ticketlisttemplatedistance = '''
+        <tr>
+            <!--<td>
+                {0}
+            </td>-->
+            <td>
+                {1}
+            </td>
+            <td>
+                {2}
+            </td>
+            <td>
+                {3}
+            </td>
+            <td>
+                {4}
+            </td>
+            <td>
+                {5}
+            </td>
+            <td>
+                {6}
+            </td>
+            <td>
+                {7}
+            </td>
+            <td>
+                {8}
+            </td>
+            <td>
+                {9}
+            </td>
+            <td>
+                {10}
+            </td>
+            <td>
+                {11}
+            </td>
+            <td>
+                {12}
+            </td>
+            <td>
+                {13}
+            </td>
+            <td>
+                <input type=button value="assign to myself" onclick="window.open('/tickets/addtoworklist?ticketid={0}')">
+            </td>
+        </tr>
+'''
+
+ticketlisttemplatedistanceassigned = '''
+        <tr>
+            <!--<td>
+                {0}
+            </td>-->
+            <td>
+                {1}
+            </td>
+            <td>
+                {2}
+            </td>
+            <td>
+                {3}
+            </td>
+            <td>
+                {4}
+            </td>
+            <td>
+                {5}
+            </td>
+            <td>
+                {6}
+            </td>
+            <td>
+                {7}
+            </td>
+            <td>
+                {8}
+            </td>
+            <td>
+                {9}
+            </td>
+            <td>
+                {10}
+            </td>
+            <td>
+                {11}
+            </td>
+            <td>
+                {12}
+            </td>
+            <td>
+                {13}
+            </td>
+            <td>
+                Already Assigned
+            </td>
+        </tr>
+'''
+
 ticketlisttemplateassigned = '''
         <tr>
             <!--<td>
@@ -451,7 +551,6 @@ def tickets():
                         </tr>
                 ''' + ticketlisthtml
         elif sort == "10":
-            print("wat")
             return redirect(url_for("getlocation"))
         elif sort == "11":
             latitude = request.args.get("latitude")
@@ -493,11 +592,11 @@ def tickets():
                         elif row[9] == "100":
                             status = "Completed"
                         if row[7] == '':
-                            ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
-                            row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+                            ticketlisthtml = ticketlisthtml + ticketlisttemplatedistance.format(row[0], row[1], row[2], row[3], \
+                            row[4], row[5], row[6], row[7], row[8], status, row[-5], row[-4], row[-3], row[-1])
                         else:
-                            ticketlisthtml = ticketlisthtml + ticketlisttemplateassigned.format(row[0], row[1], row[2], row[3], \
-                            row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
+                            ticketlisthtml = ticketlisthtml + ticketlisttemplatedistanceassigned.format(row[0], row[1], row[2], row[3], \
+                            row[4], row[5], row[6], row[7], row[8], status, row[-5], row[-4], row[-3], row[-1])
                 return navbar+ "<br>" + "Ticket List\n" + worklist_link + dropdown_sort + "\n" + '''
                 <button onclick="getLocation()">Click to get closest tickets</button>
 
@@ -564,6 +663,9 @@ def tickets():
                             </td>
                             <td>
                                 Longitude
+                            </td>
+                            <td>
+                                Distance
                             </td>
                         </tr>
                 ''' + ticketlisthtml
