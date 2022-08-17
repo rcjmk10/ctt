@@ -29,16 +29,16 @@ app.secret_key = "any random string"
 
 Userlat = 0
 Userlong = 0
-logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
+logout_link = "<b><a class=\"logoutlink\" href = '/logout'>click here to log out</a></b>"
 navbar = '''
-<ul>
+<head> <link rel="stylesheet" href="\styles.css"> </head>
+<ul class=\"navbar\">
     <li><a href="/tickets">All Tickets</a></li>
-    <li><a href="/tickets/worklist">My Worklist</a></li>
+    <li><a href="/worklist">My Worklist</a></li>
 
     <style>
         li {
             display: inline;
-            
         }
     </style>
 </ul>
@@ -377,7 +377,6 @@ def login():
         session['authenticationtoken'] = True
         return redirect(url_for('worklist'))
    return """
-   <head> <link rel="stylesheet" href="styles.css"> </head>
    <form action = "/login" method = "post">
       <label for="email">Email:</label>
       <p><input type = "text" name = "email"/></p>
@@ -423,7 +422,7 @@ def authenticate(id, passw):
 
 @app.route('/')
 def home():
-    return navbar + "<br" + "Not Logged in,\n" + "<b><a href = '/login'>click here to log in</a></b>"
+    return "<head> <link rel=\"stylesheet\" href=\"styles.css\"> </head>" + navbar + "<br" + "Not Logged in,\n" + "<b><a class=\"button\" href = '/login'>click here to log in</a></b>"
 
 @app.route('/tickets', methods = ['POST', 'GET'])
 def tickets():
@@ -431,7 +430,7 @@ def tickets():
     latitude = request.args.get("latitude")
     longitude = request.args.get("longitude")
     logout_link = "<b><a href = '/logout'>click here to log out</a></b>" + "\n"
-    worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
+    worklist_link = "<b><a href = '/worklist'>Your Tickets</a></b>"
     dropdown_sort = '''
         <select id="sort">
         <option value="0">Newest</option>
@@ -716,7 +715,7 @@ def tickets():
                 else:
                     ticketlisthtml = ticketlisthtml + ticketlisttemplateassigned.format(row[0], row[1], row[2], row[3], \
                     row[4], row[5], row[6], row[7], row[8], status, row[-4], row[-3], row[-2])
-            return navbar+ "<br>" + "Ticket List\n" + worklist_link + dropdown_sort + "\n" + '''
+            return navbar + "<br>" + "Ticket List\n" + worklist_link + dropdown_sort + "\n" + '''
             <button onclick="getLocation()">Click to get closest tickets</button>
 
             <p id="demo"></p>
@@ -879,7 +878,7 @@ def process_json():
     else:
         return 'Content-Type not supported!'
 
-@app.route('/tickets/worklist', methods = ['POST', 'GET'])
+@app.route('/worklist', methods = ['POST', 'GET'])
 def worklist():
     
     if ("authenticationtoken" in session) and session['authenticationtoken']:
@@ -1146,7 +1145,7 @@ def modifyticket():
         window.open('/tickets/modifyticket/addcomment/alterdata?ticketid={0}&ticket_status='+new_status_val+'&comment='+comment+'&date={1}');">Submit</button>  
         '''.format(ticketid, date)
         logout_link = "<b><a href = '/logout'>click here to log out</a></b>"
-        worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
+        worklist_link = "<b><a href = '/worklist'>Your Tickets</a></b>"
         ticketlist_link = "<b><a href = '/tickets'>All Tickets</a></b>"
         
         table = '''
@@ -1197,7 +1196,7 @@ def modifyticket():
                 conn.close()
                 print('Database connection closed.')
         #TODO add comment button with date autofill
-        return "navbar" + "<br" + worklist_link + "\n" + ticketlist_link + "\n" + logout_link + "<br>" + table + "<br>" + dropdown_status
+        return navbar + "<br>" + table + "<br>" + dropdown_status
     return redirect(url_for("login"))
 
 @app.route("/tickets/modifyticket/addcomment/alterdata")
