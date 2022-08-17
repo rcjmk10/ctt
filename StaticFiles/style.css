@@ -1,0 +1,9 @@
+button {
+    background-color: azure;
+    color: aliceblue;
+    padding: 14px, 20px;
+    margin: 8px 0px;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+}

@@ -1,0 +1,69 @@
+<!--<html>
+  <head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      google.charts.load("current", {
+        "packages":["map"],
+        // Note: you will need to get a mapsApiKey for your project.
+        // See: https://developers.google.com/chart/interactive/docs/basic_load_libs#load-settings
+        "mapsApiKey": "AIzaSyCkae3VLDmnW7jFEIjJQ3e3rG-3NBq3ZQQ"
+      });
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Lat', 'Long', 'Name'],
+          [37.4232, -122.0853, 'Work']
+        ]);
+
+        var options = {
+          icons: {
+            default: {
+              normal: 'https://icons.iconarchive.com/icons/icons-land/vista-map-markers/48/Map-Marker-Ball-Azure-icon.png',
+              selected: 'https://icons.iconarchive.com/icons/icons-land/vista-map-markers/48/Map-Marker-Ball-Right-Azure-icon.png'
+            }
+          }
+        };
+
+        var map = new google.visualization.Map(document.getElementById('map_markers_div'));
+        map.draw(data, options);
+      }
+
+    </script>
+  </head>
+
+  <body>
+    <div id="map_markers_div" style="width: 400px; height: 300px"></div>
+  </body>
+</html>-->
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>   
+ <script type="text/javascript">
+  google.charts.load("current", {
+    "packages":["map"],
+    // Note: you will need to get a mapsApiKey for your project.
+    // See: https://developers.google.com/chart/interactive/docs/basic_load_libs#load-settings
+    "mapsApiKey": "AIzaSyCkae3VLDmnW7jFEIjJQ3e3rG-3NBq3ZQQ"
+  });      google.charts.setOnLoadCallback(drawChart);
+  function drawChart() {
+    var data = google.visualization.arrayToDataTable([          ['Lat', 'Long', 'Name'], [-80.7382, 43.9836, 'MAIN STREET NORTH, CDMA_Module10, Debug[COM][Sevr]: Invalid command received'], [0, 0, 'Oakville 2140Baronwood, GSM_Module15, [GSM][Sevr]: Hard reset'], [43.4048, -79.7768, 'UPPER MIDDLE ROAD, ANTENA_GRP22, Debug[COM][Crit]: Unsupported BLE version 0001024E. Turning off.'], [43.3964, -79.7597, 'BURLOAK DRIVE OAKVI, RF_A14, Debug[GEN][Sevr]: JAMW'], [43.5251, -79.6676, 'WOKING CRESCENT, CDMA_Module11, Debug[GEN][Crit]: VBat = 6124 mV, Reset = 0X4, Watchdog = 0X1'],
+    ]);
+
+    var options = {
+      icons: {
+        default: {
+          normal: 'https://icons.iconarchive.com/icons/icons-land/vista-map-markers/48/Map-Marker-Ball-Azure-icon.png',
+          selected: 'https://icons.iconarchive.com/icons/icons-land/vista-map-markers/48/Map-Marker-Ball-Right-Azure-icon.png'
+        }
+      },
+      showTooltip: true,
+      showInfoWindow: true
+
+    };
+
+    var map = new google.visualization.Map(document.getElementById('map_markers_div'));
+    map.draw(data, options);
+  }
+
+</script>
+
+<div id="map_markers_div" style="width: 400px; height: 300px"></div>

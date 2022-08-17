@@ -1,0 +1,75 @@
+@app.route('/tickets', methods = ['POST', 'GET'])
+def tickets():
+    logout_link = "<b><a href = '/logout'>click here to log out</a></b>" + "\n"
+    worklist_link = "<b><a href = '/tickets/worklist'>Your Tickets</a></b>"
+    if session['authenticationtoken']:
+        conn = None
+        local_content=""
+        try:
+            conn = psycopg2.connect( host="localhost", database="ctt", user="postgres", password="cynthus2003")
+            cur = conn.cursor()
+
+            #Statement Execution
+            print('PostgreSQL vers:')
+            cur.execute('SELECT * from ctt_tickets')
+
+            #Consolidate info from query
+            local_content = cur.fetchall()
+
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
+        finally:
+            if conn is not None:
+                conn.close()
+                print('Database connection closed.')
+                print(local_content[0])
+            ticketlisthtml = ""
+            for row in local_content:
+                ticketlisthtml = ticketlisthtml + ticketlisttemplate.format(row[0], row[1], row[2], row[3], \
+                row[4], row[5], row[6], row[7], row[8], row[9], row[-4], row[-3], row[-2])
+            return "Ticket List\n" + worklist_link + logout_link + '''
+            <html>
+                <table border="1" align="center">
+                    <tr>
+                        <td>
+                            TicketID
+                        </td>
+                        <td>
+                            TowerID
+                        </td>
+                        <td>
+                            TowerStreet
+                        </td>
+                        <td>
+                            ModuleID
+                        </td>
+                        <td>
+                            ErrorCode
+                        </td>
+                        <td>
+                            ErrorDetails
+                        </td>
+                        <td>
+                            ErrorDateTime
+                        </td>
+                        <td>
+                            AssignedUser_ID
+                        </td>
+                        <td>
+                            AssignedDateTime
+                        </td>
+                        <td>
+                            Ticket_Status
+                        </td>
+                        <td>
+                            CompletedDateTime
+                        </td>
+                        <td>
+                            Longitude
+                        </td>
+                        <td>
+                            Latitude
+                        </td>
+                    </tr>
+            ''' + ticketlisthtml
+    return redirect(url_for("login"))
