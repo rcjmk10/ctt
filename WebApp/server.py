@@ -1,6 +1,7 @@
 from collections import UserDict, UserList
 import json
 from operator import methodcaller
+from re import template
 from threading import local
 from turtle import update
 from urllib.request import urlretrieve
@@ -20,7 +21,10 @@ else:
     #code here
 '''
 
-app = Flask(__name__)
+app = Flask(__name__,
+            static_url_path='',
+            static_folder='',
+            template_folder='templates')
 app.secret_key = "any random string"
 
 Userlat = 0
@@ -34,6 +38,7 @@ navbar = '''
     <style>
         li {
             display: inline;
+            
         }
     </style>
 </ul>
@@ -64,7 +69,7 @@ def space_delimiter(Str, Select):
         return "Invalid Select in space_delimiter in ticket_parse.py"
 
 
-
+#Templates for generating ticket tables
 ticketlisttemplate = '''
         <tr>
             <!--<td>
@@ -372,6 +377,7 @@ def login():
         session['authenticationtoken'] = True
         return redirect(url_for('worklist'))
    return """
+   <head> <link rel="stylesheet" href="styles.css"> </head>
    <form action = "/login" method = "post">
       <label for="email">Email:</label>
       <p><input type = "text" name = "email"/></p>
@@ -507,7 +513,7 @@ def tickets():
                 ''' +\
                 logout_link + '''
                 <html>
-                    <table border="1" align="center">
+                    <table border="1" align="center" style="border-collapse: collapse;">
                         <tr>
                             <!--<td>
                                 TicketID
@@ -623,7 +629,7 @@ def tickets():
                 ''' +\
                 logout_link + '''
                 <html>
-                    <table border="1" align="center">
+                    <table border="1" align="center" style="border-collapse: collapse;">
                         <tr>
                             <!--<td>
                                 TicketID
@@ -736,7 +742,7 @@ def tickets():
             ''' +\
              logout_link + '''
             <html>
-                <table border="1" align="center">
+                <table border="1" align="center" style="border-collapse: collapse;">
                     <tr>
                         <!--<td>
                             TicketID
@@ -953,7 +959,7 @@ def worklist():
         return navbar + "<br>" + "Assigned Tickets\n" + logout_link + "<br>" + "<b><a href = '/tickets'>Ticket List</a></b>" + "<br>"\
             + '''
             <html>
-                <table border="1" align="center">
+                <table border="1" align="center" style="border-collapse: collapse;">
                     <tr>
                         <!--<td>
                             TicketID
@@ -1070,7 +1076,7 @@ def getnewticket():
                     row[4], row[5], row[6], row[7], row[8], row[-5], status, row[-4], row[-3], row[-1])
                 return navbar + "<br>" + "Closest 10 Tickets:\n" + logout_link + '''
                 <html>
-                    <table border="1" align="center">
+                    <table border="1" align="center" style="border-collapse: collapse;">
                         <tr>
                             <!--<td>
                                 TicketID
@@ -1145,7 +1151,7 @@ def modifyticket():
         
         table = '''
         Ticket ID = {0}
-        <table border="1" align="center">
+        <table border="1" align="center" style="border-collapse: collapse;">
             <tr>
                 <td>
                 Ticket Comments
