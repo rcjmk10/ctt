@@ -377,6 +377,7 @@ def login():
         session['authenticationtoken'] = True
         return redirect(url_for('worklist'))
    return """
+   <head> <link rel="stylesheet" href="\styles.css"> </head>
    <form action = "/login" method = "post">
       <label for="email">Email:</label>
       <p><input type = "text" name = "email"/></p>
@@ -853,10 +854,10 @@ def process_json():
         #assigneddatetime = ticket["RegDate"]
         #ticketstatus = "0"
         #completeddatetime = ticket["RegDate"]
-        long = ticket["TowerLongitude"]
         lat = ticket["TowerLatitude"]
-
-        insertcommand = template.format(towerid, towerstreet, moduleid, errordetails, errordatetime, long, lat)
+        long = ticket["TowerLongitude"]
+        
+        insertcommand = template.format(towerid, towerstreet, moduleid, errordetails, errordatetime, lat, long)
         print(insertcommand)
 
         try:
@@ -893,7 +894,7 @@ def worklist():
 
             #Statement Execution
             print('PostgreSQL vers:')
-            cur.execute('SELECT * from ctt_tickets WHERE \"AssignedUser_ID\" = \''+session['uuid']+'\'')
+            cur.execute('SELECT * from ctt_tickets WHERE \"AssignedUser_ID\" = \''+session['name']+'\'')
 
             #Consolidate info from query
             local_content = cur.fetchall()
@@ -954,7 +955,7 @@ def worklist():
 \n\
     </script>\n\
 \n\
-    <div id=\"map_markers_div\" style=\"width: 400px; height: 300px\"></div>"
+    <div class=\"center\" id=\"map_markers_div\" style=\"width: 74%; height: 300px\"></div>"
         return navbar + "<br>" + "Assigned Tickets\n" + logout_link + "<br>" + "<b><a href = '/tickets'>Ticket List</a></b>" + "<br>"\
             + '''
             <html>
