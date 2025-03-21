@@ -1,41 +1,31 @@
-import com.microsoft.aad.msal4j.*;
-import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
-import com.microsoft.graph.requests.GraphServiceClient;
 import com.azure.identity.ClientCertificateCredential;
 import com.azure.identity.ClientCertificateCredentialBuilder;
+import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.models.User;
+import com.microsoft.graph.requests.GraphServiceClient;
 
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Collections;
-import java.util.Set;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
 
-public class Outlook365CertificateAuth {
+public class Outlook365ListUsersExample {
 
-    // Your Azure AD app configuration
     private static final String CLIENT_ID = "<your-client-id>";
     private static final String TENANT_ID = "<your-tenant-id>";
-    private static final String THUMBPRINT = "<certificate-thumbprint>"; // Hexadecimal thumbprint
+
     private static final String PRIVATE_KEY_PEM = """
             -----BEGIN PRIVATE KEY-----
             YOUR_BASE64_ENCODED_PRIVATE_KEY
             -----END PRIVATE KEY-----
             """;
 
-    // Scope for Microsoft Graph API to access Outlook
-    private static final Set<String> SCOPES = Collections.singleton("https://graph.microsoft.com/.default");
+    private static final List<String> SCOPES = Collections.singletonList("https://graph.microsoft.com/.default");
 
-    public static void main(String[] args) throws Exception {
-        PrivateKey privateKey = loadPrivateKey(PRIVATE_KEY_PEM);
-
+    public static void main(String[] args) {
         ClientCertificateCredential credential = new ClientCertificateCredentialBuilder()
                 .clientId(CLIENT_ID)
                 .tenantId(TENANT_ID)
                 .pemCertificate(PRIVATE_KEY_PEM)
-                .certificateThumbprint(THUMBPRINT)
                 .build();
 
         TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(SCOPES, credential);
@@ -45,33 +35,21 @@ public class Outlook365CertificateAuth {
                 .authenticationProvider(authProvider)
                 .buildClient();
 
-        // Example: Read user's mailbox (inbox)
-        graphClient
-            .users("<user-email-or-id>")
-            .mailFolders("Inbox")
-            .messages()
-            .buildRequest()
-            .get()
-            .getCurrentPage()
-            .forEach(message -> {
-                System.out.println("Subject: " + message.subject);
-                System.out.println("Sender: " + message.from.emailAddress.address);
-            });
-    }
+        List<User> users = graphClient
+                .users()
+                .buildRequest()
+                .top(20)  // Fetch first 20 users
+                .get()
+                .getCurrentPage();
 
-    private static PrivateKey loadPrivateKey(String pem) throws Exception {
-        String privateKeyPem = pem
-                .replaceAll("-----BEGIN PRIVATE KEY-----", "")
-                .replaceAll("-----END PRIVATE KEY-----", "")
-                .replaceAll("\\s+", "");
-
-        byte[] pkcs8EncodedKey = Base64.getDecoder().decode(privateKeyPem);
-        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(pkcs8EncodedKey);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePrivate(keySpec);
+        users.forEach(user -> {
+            System.out.printf("User: %s | Email: %s | ID: %s%n",
+                    user.displayName,
+                    user.mail,
+                    user.id);
+        });
     }
 }
-
 
 
 <dependencies>
