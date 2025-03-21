@@ -74,3 +74,94 @@ public class Outlook365ListUsersExample {
         <version>1.47.0</version>
     </dependency>
 </dependencies>
+
+-----------
+
+import java.security.KeyFactory;
+import java.security.interfaces.RSAKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.apache.commons.codec.binary.Hex;
+
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.azure.core.credential.TokenCredential;
+import com.azure.identity.ClientAssertionCredentialBuilder;
+import com.microsoft.graph.models.User;
+import com.microsoft.graph.requests.GraphServiceClient;
+
+public class MyService {
+
+	private static final String TENANT_ID = "[tenantId]";
+	private static final String CLIENT_ID = "[clientId]";
+	private static final String PRIVATE_KEY_BASE64 = "[private key base64 text]";
+	private static final String THUMBPRINT = "thumbprint";
+
+	public GraphServiceClient<?> getGraphClient() throws Exception {
+		byte[] encoded = Base64.getDecoder().decode(PRIVATE_KEY_BASE64);
+		PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+		RSAKey privateKey = (RSAKey) KeyFactory.getInstance("RSA").generatePrivate(keySpec);
+
+		byte[] bytes = Hex.decodeHex(THUMBPRINT.toCharArray());
+		String x5t = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+		Map<String, Object> header = new HashMap<>();
+		header.put("x5t", x5t);
+
+		String assertion = JWT.create().withHeader(header)
+				.withAudience("https://login.microsoftonline.com/" + TENANT_ID + "/oauth2/v2.0/token")
+				.withExpiresAt(OffsetDateTime.now().plusMinutes(5).toInstant())
+				.withIssuer(CLIENT_ID)
+				.withJWTId(UUID.randomUUID().toString())
+				.withNotBefore(OffsetDateTime.now().toInstant())
+				.withSubject(CLIENT_ID)
+				.withIssuedAt(OffsetDateTime.now().toInstant())
+				.sign(Algorithm.RSA256(privateKey));
+
+		TokenCredential credential = new ClientAssertionCredentialBuilder().tenantId(TENANT_ID)
+				.clientId(CLIENT_ID)
+				.clientAssertion(() -> assertion)
+				.build();
+
+		return GraphServiceClient.builder()
+				.authenticationProvider(credential)
+				.buildClient();
+	}
+
+	public List<User> listUsers() throws Exception {
+		GraphServiceClient<?> client = getGraphClient();
+		return client.users()
+				.buildRequest()
+				.top(20)
+				.get()
+				.getCurrentPage();
+	}
+
+	public static void main(String[] args) {
+		MyService service = new MyService();
+		try {
+			List<User> users = service.listUsers();
+			for (User user : users) {
+				System.out.println("User: " + user.displayName + ", Email: " + user.mail);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+}
+
+/*
+Gradle Dependencies:
+
+implementation 'com.azure:azure-identity:1.11.3'
+implementation 'com.microsoft.graph:microsoft-graph:5.74.0'
+implementation 'com.auth0:java-jwt:4.4.0'
+implementation 'commons-codec:commons-codec:1.17.0'
+*/
+
