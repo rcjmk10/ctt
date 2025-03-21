@@ -1,0 +1,115 @@
+cat privateKey.pem
+-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIIFHDBOBgkqhkiG9w0BBQ0wQTApBgkqhkiG9w0BBQwwHAQIm48yUaDfvf0CAggA
+MAwGCCqGSIb3DQIJBQAwFAYIKoZIhvcNAwcECLiXLUQnXFcyBIIEyFCOsxWuOs6B
+HTvLmslX41rz0ludR05dGjqMh9yW+uqF+AdhI58RbOYCKTB/9ktfWrSB9TSS7J3q
+/xXtOrOh1QqJYVm7P8TjmykPo4K7RTaWhBuY/XexJOpqbFh3WqBumxFgksT3365a
+zajWwgpVJYFW5Cq/Hn0ICGw8D1pBnGTgL/D9zeuAe5LbkFTZy3My1Dldi57mCs2H
+pFz01lcLR6qsoBFjD+p5HxFdQ8ZB3DGj4vmpdjbEXJKH6fPGqvpZN66cnaoz63iH
+cbu7cMAPAMN3JBwlt9LvIUD/rU0dwTrVqi71nXtbaO3xUxvjm2RuV4dEOGl9Du6j
+ScWvRXeW4p498deDke4M4Pa/MJdI3OqDp9OK7CaFdZZAPCqY7Lq+ZIx12ZRy0ZpA
+TZOyCWv6RKFxFf7UwNCRx3Mzcj8fKbsGY+vcCprRn/twWZM2OdnrOLzOC24AOIZg
+G8292j0mTGoWKuqSM9CbceQKGQIKPMhz7LDbJJHch6sfg5jFo803XkFBEEXOKxAd
+Nmv529eCOU0DH69AxJT9Brk6eVECTm4TuQ32W0UEmpBERg+WMZa1HS5ux4BEJmgf
+nlQKoOPm8GFPjbCvYvOvi8DKniEfH8DUesR2xn2ad+fv6vYlksdpC+3kgA315+qQ
+Wb6MUvb0X5CmmMoIvKIVfWjyX8UPYOPFRE7o3BqWzs7ZZU8zusy8axCB1Llq0CA3
+ehOuLtPOYqzfJqePvHgpdzit1HLYZMEvZqAdM56aYhnAfN2X8elrgTUXGmr+yu+w
+llvtzRvHeY2QyJN3hxEwxhEQElvaJwN7oOf5lLKqmCPlI6aWy8zxIJkj//DQ38xP
+riU8BMHvpgROC7ilrJ7V2Pvomin73wbkpUMfjVo3yJjICtTV7IrzAZPy4oxLQ133
+MZ9tlSOrIhXsThY3LdcF9ACza92JHTP6bgKEIloVFT5+FgDfdM+XzurxtPRe8FrU
+QpeM3B+hGzRKxhvkwaVuACveEJtcqn6cQaaQI4TGh2OPS5KIkMjYbSJkw0aXhY66
+hqW35GkVTHcaZAwf/NE45Dy/I9ApOobIiK7QmLKkwQzfLChoPQukBw0WH65IyUqA
+4t7hb0RZkFglu+oFAMj+gqy2c/aYMcqf0PNGWdFzL9IGfpAetJr0CwGD3DdO1W/Y
+jS3HtVqwVQ+BwEHALuaxZMAt6DmONTllkGq9/GR0D/ZQ75jhmcff+/iRRORp1h6f
+b7Pod4ASJNGqeYxDkxT3DyVF1EEuNGbfHvIixgyd6Z1Ir4KPpQrhgUevkzQs+OQh
+8An4+m7Ro+4umsYgsxphQBkgrADyMnUWW6U1JKBJqB3eORnFXytJPtAbDT/0miJ1
+EUs1GWxBBvdxfi/z8xqHs1nze9dk9MrsfeoJyNgCkaYZ9x42labTu+BWVkFRLGu6
+iWhWA4UfdYMyDj8zW0wXefRfUKit0QW7FIcW79+5rYs9TNPX0kOv71lp262Uyty7
+B6udwcABTU4anMp+RM1e58ldQ7TrhXw+GPGF/6av47IbzBMHFKWgASH8ya8PTasE
+Hch3lahwR73zDd53PVIJp3cpJQL1V2Uqrfp7aGUDaxVRxJfwGdYD9MsLtZVeBEzV
+UxGLN+Hi0/mC/uwqGUiDtQ==
+-----END ENCRYPTED PRIVATE KEY-----
+-----------------------------------------------------
+
+openssl req -x509 -newkey rsa:2048 -keyout privateKey.pem -out cert.pem -days 365 -nodes
+
+9E5F9C7446A36892AD1882949CDCBEE81A5E9B39
+zhongfalimsn1
+3/21/2025
+3/21/2026
+78a2d31c-1aaf-4fe1-ac88-815cfcb7cf8b
+
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDY3JJ37NFmnzP2
+omIz+NxopTi4+9o1ol+vOX7THA0OGdCY1mFG6ailVGQ0wIkMy4JOL2DbG2WDqaGm
+ejOh3gXkwXnObIwxP6JeegfY5Al1/ME4REDTbNedbkpCAoedot2neCBwJVONcuKb
+VzEY9j9lZdmlZGEsnB4wOo1fNgxpoAUIXH932chgfGI7Gzy3OoZ/qg3qRpfTYObP
+4bMvODI7IW53biiznMsi7otDMW/0srO5V3akadKVLCAmzRNH1/nAUAE3NiIT+0Bn
+AAr31EcO2j++B/3xQAoWr9UP1BIfVgO+9dgOil/bmB+qeHukVOV2tiipwiKdY6qx
+6qFh8iofAgMBAAECggEAW2mi/hVf8YOzakfp4GGLOztGLUfQpCIldl3klYWyBRsh
+oINhrvwooERyFwB/5NpWO7HiAIpMYNMc9ml1oUpPLq3VtAtyjwH1ZiDHdQgu6sLY
+CelPcC/ltZF7kNazJuIzz/elqNA7J5lhZzy6T/zhHVNxCrRE+AJ5ATh1Rkios86+
+0fFliwhFw/yrr/pVhS9JoTpChCwCxb/DtJh/kLbfOAiYs+P9R1icXRYSNqqv3uqu
+VwbNyjcaMgBxce8xYk0t7DGgmu+o1CHFBNXxMY3L2qELot3zFBUEQOozn9CMjD9v
+oyY93MwhEC+TmXvWYQSKYCgS3Wa67EY6VAYwCpmhBQKBgQD4rW8Jx+elfVWbsgxJ
+JSpmwKVRfMjEuHy5uJCbeITANbTJWPVyk4Gopz2fEq/pkxWul41Qv6mdijXJCVTZ
+1RoxO8/7xDd9O+LL8AFyIq8jWe50noGFE15P9cqJNOLV5V2sEb/4hjh39Usrj+Zx
+mwEpHGrflBLKNvaYtu3W0HIISwKBgQDfP05Nc5VnwEpUo/DyEIT/pVT6yg19BMj2
+7+v1Oa2yKrc41ipgqfNfoNoBExui1+PCqyecK5GWNXog61uuAY5ZXQ0EfB/rJg00
+IjtAqLX6/TUqX22n+WYMmolpNlpjDTT7GbieTGovqKbjyy2AFTn2DPVePuS+A+Gq
+BxqJf7To/QKBgD87GjjKc8RIkjP8mdMfeCCYa3DE4efjYRN4MozVoCuffFCWJhL0
+HsvbenewMLqbg6/ZKT2W/nHoarSrgr/Ax+As7T1/LvzQ9WIVrMhwuUer3k4Y36YO
+vrRmMxGgOO1aXO8btExlFIasAGkbNeU9HJZve11OMVjpkNpT6TXt2pDxAoGADDuE
+x9uoeRnhOMgO4MSk9PkTMfa2TH5hoJ4+2J4DdXq/tV6OzeMiEcBXka2BWyfnM/h6
+4CTHAmsFuR4MVPmC2kSt/OvsN89K8+tYQc+8wPb03dCCyqxwugoRs3El/L1xhLzB
+D/Nx8hCUrHCqmpUPKvtEypg5omvGBrIC8zvLJuUCgYEAlTOcSVHVQTlXu/r1kNEp
+TgVOSZQ6SEcS6jdKVLIpe+un7wlB456y6iBcvkD42bl482xq1UePaDedOskmgO0g
+iy+1Q/yRLE7bSXU2n+YryVFwZ71uO1wuJErKCcYj6U8UbdXVSHIUreWaRpMGYwZB
+xpP7x7U7KF90rnBvkkIfO4M=
+-----END PRIVATE KEY-----
+-----------------------------------------------------
+
+Thumbprint
+Description
+Start date
+Expires
+Certificate ID
+A3BCC49DA422465C1245F61CE181544136DD8FF3
+zhongfalimsn
+3/21/2025
+3/21/2026
+04856d95-2375-4f34-bd3c-9669fc8222c8
+
+
+redirect: http://localhost:8080/callback
+
+Display name
+:
+zhongfalimsn
+Application (client) ID
+:
+7848fbbb-8995-47a3-afc2-8279a845355c
+Object ID
+:
+3d678397-3e70-4c2f-b271-73cb0a7623bf
+Directory (tenant) ID
+:
+7df3304f-b1fe-4617-afd0-3898de44deae
+Supported account types
+:
+My organization only
+Client credentials
+:
+1 certificate, 1 secret
+Redirect URIs
+:
+1 web, 0 spa, 0 public client
+Application ID URI
+:
+Add an Application ID URI
+Managed application in local directory
+:
+zhongfalimsn
+
+
+https://github.com/Azure-Samples/ms-identity-java-daemon
