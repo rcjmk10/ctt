@@ -1,0 +1,98 @@
+import com.microsoft.aad.msal4j.*;
+import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.requests.GraphServiceClient;
+import com.azure.identity.ClientCertificateCredential;
+import com.azure.identity.ClientCertificateCredentialBuilder;
+
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Collections;
+import java.util.Set;
+import java.util.Base64;
+
+public class Outlook365CertificateAuth {
+
+    // Your Azure AD app configuration
+    private static final String CLIENT_ID = "<your-client-id>";
+    private static final String TENANT_ID = "<your-tenant-id>";
+    private static final String THUMBPRINT = "<certificate-thumbprint>"; // Hexadecimal thumbprint
+    private static final String PRIVATE_KEY_PEM = """
+            -----BEGIN PRIVATE KEY-----
+            YOUR_BASE64_ENCODED_PRIVATE_KEY
+            -----END PRIVATE KEY-----
+            """;
+
+    // Scope for Microsoft Graph API to access Outlook
+    private static final Set<String> SCOPES = Collections.singleton("https://graph.microsoft.com/.default");
+
+    public static void main(String[] args) throws Exception {
+        PrivateKey privateKey = loadPrivateKey(PRIVATE_KEY_PEM);
+
+        ClientCertificateCredential credential = new ClientCertificateCredentialBuilder()
+                .clientId(CLIENT_ID)
+                .tenantId(TENANT_ID)
+                .pemCertificate(PRIVATE_KEY_PEM)
+                .certificateThumbprint(THUMBPRINT)
+                .build();
+
+        TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(SCOPES, credential);
+
+        GraphServiceClient<?> graphClient = GraphServiceClient
+                .builder()
+                .authenticationProvider(authProvider)
+                .buildClient();
+
+        // Example: Read user's mailbox (inbox)
+        graphClient
+            .users("<user-email-or-id>")
+            .mailFolders("Inbox")
+            .messages()
+            .buildRequest()
+            .get()
+            .getCurrentPage()
+            .forEach(message -> {
+                System.out.println("Subject: " + message.subject);
+                System.out.println("Sender: " + message.from.emailAddress.address);
+            });
+    }
+
+    private static PrivateKey loadPrivateKey(String pem) throws Exception {
+        String privateKeyPem = pem
+                .replaceAll("-----BEGIN PRIVATE KEY-----", "")
+                .replaceAll("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s+", "");
+
+        byte[] pkcs8EncodedKey = Base64.getDecoder().decode(privateKeyPem);
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(pkcs8EncodedKey);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePrivate(keySpec);
+    }
+}
+
+
+
+<dependencies>
+    <dependency>
+        <groupId>com.microsoft.azure</groupId>
+        <artifactId>msal4j</artifactId>
+        <version>1.14.0</version>
+    </dependency>
+    <dependency>
+        <groupId>com.azure</groupId>
+        <artifactId>azure-identity</artifactId>
+        <version>1.11.3</version>
+    </dependency>
+    <dependency>
+        <groupId>com.microsoft.graph</groupId>
+        <artifactId>microsoft-graph</artifactId>
+        <version>5.74.0</version>
+    </dependency>
+    <dependency>
+        <groupId>com.azure</groupId>
+        <artifactId>azure-core</artifactId>
+        <version>1.47.0</version>
+    </dependency>
+</dependencies>
