@@ -129,9 +129,12 @@ public class MyService {
 				.clientAssertion(() -> assertion)
 				.build();
 
-		return GraphServiceClient.builder()
-				.authenticationProvider(credential)
-				.buildClient();
+		    TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
+            Collections.singletonList("https://graph.microsoft.com/.default"), credential);
+
+    return GraphServiceClient.builder()
+            .authenticationProvider(authProvider)
+            .buildClient();
 	}
 
 	public List<User> listUsers() throws Exception {
