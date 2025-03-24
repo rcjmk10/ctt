@@ -116,3 +116,68 @@ zhongfalimsn
 
 
 https://github.com/Azure-Samples/ms-identity-java-daemon
+
+import com.microsoft.graph.models.*;
+import com.microsoft.graph.requests.GraphServiceClient;
+import com.azure.identity.ClientSecretCredential;
+import com.azure.identity.ClientSecretCredentialBuilder;
+
+import java.util.Collections;
+import java.util.LinkedList;
+
+public class EmailForwarding {
+
+    public static void main(String[] args) {
+        String clientId = "YOUR_CLIENT_ID";
+        String clientSecret = "YOUR_CLIENT_SECRET";
+        String tenantId = "YOUR_TENANT_ID";
+        String userId = "USER_ID"; // User principal name (like user@example.com)
+        String forwardingAddress = "richard@handrock.com";
+
+        // Authenticate using Azure identity
+        ClientSecretCredential clientSecretCredential = new ClientSecretCredentialBuilder()
+                .clientId(clientId)
+                .clientSecret(clientSecret)
+                .tenantId(tenantId)
+                .build();
+
+        GraphServiceClient<Request> graphClient = GraphServiceClient
+                .builder()
+                .authenticationProvider(request -> {
+                    String token = clientSecretCredential.getToken("https://graph.microsoft.com/.default").block().getToken();
+                    request.addHeader("Authorization", "Bearer " + token);
+                })
+                .buildClient();
+
+        // Create the forwarding rule
+        MessageRule forwardRule = new MessageRule();
+        forwardRule.displayName = "Auto Forward Rule";
+        forwardRule.sequence = 1;
+        forwardRule.isEnabled = true;
+
+        // Conditions to apply the rule to all incoming messages
+        MessageRulePredicates conditions = new MessageRulePredicates();
+        conditions.recipientContains = new LinkedList<>(Collections.singletonList("@"));
+        forwardRule.conditions = conditions;
+
+        // Forwarding action
+        MessageRuleActions actions = new MessageRuleActions();
+        Recipient recipient = new Recipient();
+        EmailAddress emailAddress = new EmailAddress();
+        emailAddress.address = forwardingAddress;
+        recipient.emailAddress = emailAddress;
+        actions.forwardTo = new LinkedList<>(Collections.singletonList(recipient));
+        forwardRule.actions = actions;
+
+        // Create the rule using Microsoft Graph API
+        graphClient
+                .users(userId)
+                .mailFolders("inbox")
+                .messageRules()
+                .buildRequest()
+                .post(forwardRule);
+
+        System.out.println("Auto-forwarding rule created successfully!");
+    }
+}
+
