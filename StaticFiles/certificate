@@ -180,4 +180,129 @@ public class EmailForwarding {
         System.out.println("Auto-forwarding rule created successfully!");
     }
 }
+-------------------------------------------------------------------------
+implementation 'com.microsoft.graph:microsoft-graph:5.74.0'
+implementation 'com.nimbusds:nimbus-jose-jwt:9.31'
+implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+------------------------------------------------------------
+import com.microsoft.graph.models.*;
+import com.microsoft.graph.requests.GraphServiceClient;
+import okhttp3.Request;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.*;
+import com.nimbusds.jwt.*;
+
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.*;
+
+import java.util.Base64;
+
+public class GraphClientWithPrivateKey {
+
+    private static final String CLIENT_ID = "YOUR_CLIENT_ID";
+    private static final String TENANT_ID = "YOUR_TENANT_ID";
+    private static final String PRIVATE_KEY_STRING = """
+            -----BEGIN PRIVATE KEY-----
+            MIIEvAIBADANBgkqhkiG9w0BAQEFAA...
+            -----END PRIVATE KEY-----
+            """;
+    private static final String THUMBPRINT = "YOUR_CERTIFICATE_THUMBPRINT";
+
+    public static void main(String[] args) {
+        try {
+            // Decode the private key string
+            String privateKeyPEM = PRIVATE_KEY_STRING
+                    .replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replaceAll("\\s+", "");
+
+            byte[] keyBytes = Base64.getDecoder().decode(privateKeyPEM);
+            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
+
+            // Create JWT
+            String jwt = createJWT(privateKey);
+
+            // Exchange JWT for access token
+            String token = getAccessToken(jwt);
+
+            // Build Graph Client using the token
+            GraphServiceClient<Request> graphClient = GraphServiceClient
+                    .builder()
+                    .authenticationProvider(request -> {
+                        request.addHeader("Authorization", "Bearer " + token);
+                    })
+                    .buildClient();
+
+            // Test the connection
+            User user = graphClient.me().buildRequest().get();
+            System.out.println("User: " + user.displayName);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Create JWT using the private key
+    private static String createJWT(PrivateKey privateKey) throws Exception {
+        // Create the JWT header
+        JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
+                .keyID(THUMBPRINT) // Use the thumbprint from the Azure portal
+                .build();
+
+        // Create the JWT payload
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(CLIENT_ID) // Application ID from Azure
+                .subject(CLIENT_ID)
+                .audience("https://login.microsoftonline.com/" + TENANT_ID + "/oauth2/v2.0/token")
+                .issueTime(new Date())
+                .expirationTime(new Date(System.currentTimeMillis() + 60 * 1000)) // 1 minute validity
+                .jwtID(UUID.randomUUID().toString())
+                .build();
+
+        // Sign the JWT
+        SignedJWT signedJWT = new SignedJWT(header, claims);
+        RSASSASigner signer = new RSASSASigner(privateKey);
+        signedJWT.sign(signer);
+
+        return signedJWT.serialize();
+    }
+
+    // Exchange the JWT for an access token
+    private static String getAccessToken(String jwt) throws Exception {
+        String tokenEndpoint = "https://login.microsoftonline.com/" + TENANT_ID + "/oauth2/v2.0/token";
+
+        String body = "client_id=" + CLIENT_ID +
+                      "&scope=https%3A%2F%2Fgraph.microsoft.com%2F.default" +
+                      "&client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer" +
+                      "&client_assertion=" + jwt +
+                      "&grant_type=client_credentials";
+
+        java.net.URL url = new java.net.URL(tokenEndpoint);
+        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        connection.setDoOutput(true);
+
+        try (java.io.OutputStream os = connection.getOutputStream()) {
+            byte[] input = body.getBytes("utf-8");
+            os.write(input, 0, input.length);
+        }
+
+        if (connection.getResponseCode() != 200) {
+            throw new RuntimeException("Failed to get token: " + connection.getResponseMessage());
+        }
+
+        try (java.io.InputStream is = connection.getInputStream()) {
+            java.util.Scanner scanner = new java.util.Scanner(is).useDelimiter("\\A");
+            String response = scanner.hasNext() ? scanner.next() : "";
+
+            org.json.JSONObject jsonObject = new org.json.JSONObject(response);
+            return jsonObject.getString("access_token");
+        }
+    }
+}
 
