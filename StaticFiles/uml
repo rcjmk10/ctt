@@ -1,0 +1,180 @@
+Okay, here are the textual representations of the sequence diagrams formatted in a style that is closer to PlantUML syntax. Please note that this is a simplified representation and might require minor adjustments depending on the specific features and syntax of the UML tool you are using.
+
+**Scenario 1: UserLoginSuccess\_BankEmployee**
+
+@startuml
+actor "Bank Employee" as User
+participant "Delegate App (Browser)" as Browser
+participant "WAM" as WAM
+participant "Delegate App (Server)" as Server
+participant "Authentication Service" as Auth
+
+User -> Browser: Accesses Delegate App URL
+Browser -> WAM: Redirect to WAM login page
+User -> WAM: Enters Scotia ID and password
+WAM -> Browser: Authenticates user, Redirect with token
+Browser -> Server: Request with authentication token
+Server -> Auth: Validate token, Retrieve user role
+Auth -> Server: Returns user role (Bank Employee)
+Server -> Get S2S Access token from WAM
+Server -> Call Identity Service with S2S Access token and login Scotia ID to retrieve user details including horizon ID
+Server -> Call Op Service with S2S Access token and horizon ID to retrieve office profile details including transit
+Server -> Browser: Redirect to Delegate Homepage
+Browser -> User: Displays Delegate Homepage
+@enduml
+
+**Scenario 2: CreateNewOOF\_BankEmployee**
+
+@startuml
+actor "Bank Employee" as User
+participant "Delegate App (Browser)" as Browser
+participant "Delegate App (Server)" as Server
+participant "OOFHandlerFactory" as Factory
+participant "Outlook365Handler" as Handler
+participant "Outlook365Adapter" as Adapter
+participant "Outlook 365 API" as OutlookAPI
+database "Out of Office Table" as OOFDB
+
+User -> Browser: Navigate to OOF Management
+User -> Browser: Enter OOF details, Click "Save"
+Browser -> Server: Create new OOF record request
+Server -> Factory: Request createHandler("Outlook")
+Factory -> Handler: Create Outlook365Handler
+Factory <-- Handler
+Server -> Handler: Receive OOF creation request
+Handler -> Adapter: setOutOfOffice(OOF details)
+Adapter -> OutlookAPI: Call Outlook 365 API
+OutlookAPI --> Adapter: API call status
+Adapter --> Handler: Result of Outlook operation
+Handler -> Server: Persist new OOF record
+Server -> OOFDB: Insert OOF record
+OOFDB --> Server
+Server -> Browser: Send success message
+Browser -> User: Display success message, Update OOF record
+@enduml
+
+**Scenario 3: UpdateExistingOOF\_BankEmployee**
+
+@startuml
+actor "Bank Employee" as User
+participant "Delegate App (Browser)" as Browser
+participant "Delegate App (Server)" as Server
+database "Out of Office Table" as OOFDB
+participant "OOFHandlerFactory" as Factory
+participant "Outlook365Handler" as Handler
+participant "Outlook365Adapter" as Adapter
+participant "Outlook 365 API" as OutlookAPI
+
+User -> Browser: Navigate to OOF Management
+Browser -> Server: Request existing OOF record
+Server -> OOFDB: Retrieve OOF record for user
+OOFDB --> Server: Returns OOF record
+Server -> Browser: Display existing OOF record
+User -> Browser: Modify OOF details, Click "Save"
+Browser -> Server: Update OOF record request
+Server -> Factory: Request createHandler("Outlook")
+Factory -> Handler: Create Outlook365Handler
+Factory <-- Handler
+Server -> Handler: Receive OOF update request
+Handler -> Adapter: setOutOfOffice(updated OOF details)
+Adapter -> OutlookAPI: Call Outlook 365 API
+OutlookAPI --> Adapter: API call status
+Adapter --> Handler: Result of Outlook operation
+Handler -> Server: Update OOF record
+Server -> OOFDB: Update OOF record
+OOFDB --> Server
+Server -> Browser: Send success message
+Browser -> User: Display success message, Update OOF record
+@enduml
+
+**Scenario 4: CleanupOOF\_BatchJob**
+
+@startuml
+participant "Scheduled Task" as Scheduler
+participant "Delegate App (Server)" as Server
+database "Out of Office Table" as OOFDB
+participant "OOFHandlerFactory" as Factory
+participant "Outlook365Handler" as Handler
+participant "Outlook365Adapter" as Adapter
+participant "Outlook 365 API" as OutlookAPI
+participant "Logging Service (Splunk)" as Splunk
+
+Scheduler -> Server: Trigger OOF cleanup batch job
+Server -> OOFDB: Query for past OOF records for cleanup
+OOFDB --> Server: List of OOF records
+loop For each OOF record to cleanup
+  Server -> Factory: Request createHandler("Outlook")
+  Factory -> Handler: Create Outlook365Handler
+  Factory <-- Handler
+  Server -> Handler: Request OOF cleanup
+  Handler -> Adapter: resetOutOfOffice(employee details)
+  Adapter -> OutlookAPI: Call Outlook 365 API
+  OutlookAPI --> Adapter: API call status
+  Adapter --> Handler: Result of Outlook cleanup
+  Handler -> Server: Update OOF record (mark as cleaned)
+  Server -> OOFDB: Update OOF record status
+  OOFDB --> Server
+  Server -> Splunk: Log cleanup outcome
+end
+@enduml
+
+**Scenario 5: UserLoginSuccess\_Administrator**
+
+@startuml
+actor "Administrator" as Admin
+participant "Delegate App (Browser)" as Browser
+participant "WAM" as WAM
+participant "Delegate App (Server)" as Server
+participant "Authentication Service" as Auth
+
+Admin -> Browser: Accesses Delegate App URL
+Browser -> WAM: Redirect to WAM login page
+Admin -> WAM: Enters Scotia ID and password
+WAM -> Browser: Authenticates user, Redirect with token
+Browser -> Server: Request with authentication token
+Server -> Auth: Validate token, Retrieve user role
+Auth -> Server: Returns user role (Administrator)
+Server -> Browser: Redirect to Admin Panel
+Browser -> Admin: Displays Admin Panel
+@enduml
+
+**Scenario 6: CreateOOFForOtherEmployee\_Administrator**
+
+@startuml
+actor "Administrator" as Admin
+participant "Delegate App (Browser)" as Browser
+participant "Delegate App (Server)" as Server
+participant "Authentication Service" as Auth
+database "Employee Table" as EmployeeDB
+participant "OOFHandlerFactory" as Factory
+participant "Outlook365Handler" as Handler
+participant "Outlook365Adapter" as Adapter
+participant "Outlook 365 API" as OutlookAPI
+database "Out of Office Table" as OOFDB
+
+Admin -> Browser: Navigate to Manage OOF for Others
+Admin -> Browser: Search for employee
+Browser -> Server: Search employee request
+Server -> EmployeeDB: Query for employee
+EmployeeDB --> Server: Employee details
+Server -> Browser: Display employee details
+Admin -> Browser: Enter OOF details, Click "Save"
+Browser -> Server: Create OOF for other request
+Server -> Auth: Verify administrator privileges
+Auth --> Server: Privileges confirmed
+Server -> Factory: Request createHandler("Outlook")
+Factory -> Handler: Create Outlook365Handler
+Factory <-- Handler
+Server -> Handler: Receive OOF creation request (for other)
+Handler -> Adapter: setOutOfOffice(OOF details, employee info)
+Adapter -> OutlookAPI: Call Outlook 365 API
+OutlookAPI --> Adapter: API call status
+Adapter --> Handler: Result of Outlook operation
+Handler -> Server: Persist new OOF record (with employee ID)
+Server -> OOFDB: Insert OOF record
+OOFDB --> Server
+Server -> Browser: Send success message
+Browser -> Admin: Display success message
+@enduml
+
+Remember to consult the documentation of your chosen UML tool for the exact syntax and features it supports. You might need to adjust these representations slightly for optimal rendering. Good luck creating your diagrams!
