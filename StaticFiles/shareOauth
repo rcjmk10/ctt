@@ -1,0 +1,505 @@
+# Central Authorization Server with Token Forwarding Example
+
+Here's a comprehensive example of implementing Option 2, where you have a central authorization service that handles OAuth2 flows and forwards tokens to client applications.
+
+## Architecture Overview
+
+1. **Central Auth Service**: Handles OAuth2 login with providers
+2. **Client Applications**: Redirect to central auth service, receive tokens
+3. **Token Forwarding**: Auth service forwards tokens to clients after authentication
+
+## 1. Central Authorization Service Implementation
+
+### Dependencies (pom.xml)
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-oauth2-client</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+</dependencies>
+```
+
+### Application Configuration
+```java
+@SpringBootApplication
+public class AuthServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(AuthServiceApplication.class, args);
+    }
+}
+```
+
+### Security Configuration
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .authorizeRequests()
+                .antMatchers("/", "/login**", "/oauth2/**").permitAll()
+                .anyRequest().authenticated()
+            .and()
+            .oauth2Login()
+                .authorizationEndpoint()
+                    .baseUri("/oauth2/authorize")
+                    .authorizationRequestRepository(cookieAuthorizationRequestRepository())
+                .and()
+                .redirectionEndpoint()
+                    .baseUri("/oauth2/callback/*")
+                .and()
+                .successHandler(oAuth2SuccessHandler());
+    }
+
+    @Bean
+    public OAuth2SuccessHandler oAuth2SuccessHandler() {
+        return new OAuth2SuccessHandler();
+    }
+
+    @Bean
+    public AuthorizationRequestRepository<OAuth2AuthorizationRequest> cookieAuthorizationRequestRepository() {
+        return new HttpCookieOAuth2AuthorizationRequestRepository();
+    }
+}
+```
+
+### OAuth2 Success Handler (Token Forwarding)
+```java
+@Component
+public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+
+    @Value("${allowed.redirect.domains}")
+    private List<String> allowedRedirectDomains;
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request, 
+                                       HttpServletResponse response, 
+                                       Authentication authentication) throws IOException {
+        
+        String targetUrl = determineTargetUrl(request, authentication);
+        
+        if (response.isCommitted()) {
+            logger.debug("Response has already been committed. Unable to redirect to " + targetUrl);
+            return;
+        }
+        
+        // Forward tokens to the client application
+        String redirectUrl = request.getParameter("redirect_uri");
+        if (isAllowedRedirect(redirectUrl)) {
+            OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
+            OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
+                authToken.getAuthorizedClientRegistrationId(), 
+                authToken.getName());
+            
+            String tokenForwardUrl = buildTokenForwardUrl(redirectUrl, client);
+            getRedirectStrategy().sendRedirect(request, response, tokenForwardUrl);
+        } else {
+            throw new IllegalStateException("Invalid redirect URL");
+        }
+    }
+
+    private String buildTokenForwardUrl(String baseUrl, OAuth2AuthorizedClient client) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
+            .queryParam("access_token", client.getAccessToken().getTokenValue());
+            
+        if (client.getRefreshToken() != null) {
+            builder.queryParam("refresh_token", client.getRefreshToken().getTokenValue());
+        }
+        
+        return builder.build().toUriString();
+    }
+
+    private boolean isAllowedRedirect(String url) {
+        if (url == null) return false;
+        
+        try {
+            URI uri = new URI(url);
+            String host = uri.getHost();
+            return allowedRedirectDomains.stream().anyMatch(domain -> host.endsWith(domain));
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
+}
+```
+
+## 2. Client Application Implementation
+
+### Client Security Configuration
+```java
+@Configuration
+@EnableWebSecurity
+public class ClientSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Value("${auth.service.url}")
+    private String authServiceUrl;
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .authorizeRequests()
+                .antMatchers("/", "/login**", "/auth/callback").permitAll()
+                .anyRequest().authenticated()
+            .and()
+            .oauth2Client()
+            .and()
+            .addFilterBefore(new TokenValidationFilter(), BasicAuthenticationFilter.class);
+    }
+
+    @Bean
+    public OAuth2AuthorizedClientService authorizedClientService() {
+        return new InMemoryOAuth2AuthorizedClientService();
+    }
+
+    @Bean
+    public WebClient webClient(OAuth2AuthorizedClientService clientService) {
+        ServletOAuth2AuthorizedClientExchangeFilterFunction oauth2 = 
+            new ServletOAuth2AuthorizedClientExchangeFilterFunction(clientService);
+        return WebClient.builder()
+            .apply(oauth2.oauth2Configuration())
+            .build();
+    }
+}
+```
+
+### Token Validation Filter
+```java
+public class TokenValidationFilter extends OncePerRequestFilter {
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, 
+                                  HttpServletResponse response, 
+                                  FilterChain filterChain) throws ServletException, IOException {
+        
+        if (request.getRequestURI().startsWith("/auth/callback")) {
+            String accessToken = request.getParameter("access_token");
+            // Validate token (could call auth service or validate locally)
+            if (isValidToken(accessToken)) {
+                // Store token in session or security context
+                SecurityContextHolder.getContext().setAuthentication(
+                    new PreAuthenticatedAuthenticationToken(accessToken, null));
+            } else {
+                response.sendError(HttpStatus.UNAUTHORIZED.value());
+                return;
+            }
+        }
+        
+        filterChain.doFilter(request, response);
+    }
+
+    private boolean isValidToken(String token) {
+        // Implement token validation logic
+        return token != null && !token.isEmpty();
+    }
+}
+```
+
+## 3. Flow Explanation
+
+1. **Client initiates login**:
+   ```html
+   <a href="https://auth-service.example.com/oauth2/authorize/google?redirect_uri=https://client1.example.com/auth/callback">
+     Login with Google
+   </a>
+   ```
+
+2. **Auth service handles OAuth2 flow** with the provider (Google in this case)
+
+3. **After successful authentication**, the auth service:
+   - Receives tokens from the provider
+   - Validates and processes them
+   - Redirects back to the client with tokens in URL parameters
+
+4. **Client application**:
+   - Receives tokens at the callback endpoint
+   - Validates them (either locally or by calling auth service)
+   - Establishes a session
+
+## 4. Additional Considerations
+
+### Token Security
+- Use PKCE (Proof Key for Code Exchange) for public clients
+- Consider using short-lived access tokens with refresh tokens
+- Implement proper token validation in the client
+
+### Configuration
+```yaml
+# Auth service application.yml
+allowed:
+  redirect:
+    domains:
+      - example.com
+      - client1.com
+      - client2.org
+
+# Client application.yml
+auth:
+  service:
+    url: https://auth-service.example.com
+```
+
+### Cross-Origin Considerations
+If your clients are SPAs, you might need to:
+- Use postMessage instead of redirects for token forwarding
+- Implement proper CORS configuration
+- Consider the OAuth2 implicit flow (though not recommended for new apps)
+
+This architecture provides a centralized way to manage authentication while allowing multiple client applications to benefit from a single OAuth2 registration with providers.
+
+
+---open AI
+
+Yes! Here's a complete outline and code sample for **Option 2: Central OAuth2 Proxy Gateway**, where only **one app handles the OAuth2 login** (like `auth.example.com`) and **forwards the token/session** to multiple other client apps (`site1.example.com`, `site2.example.com`).
+
+---
+
+## 🎯 Scenario
+
+- You have a **central login server**: `auth.example.com`
+- Multiple frontend web clients: `site1.example.com`, `site2.example.com`
+- Only `auth.example.com` handles the OAuth2 login flow
+- After login, it issues a **signed JWT** or session token
+- Client apps **receive and validate the token**
+
+---
+
+## 🛠️ Components
+
+### ✅ `auth.example.com` (Spring Boot app)
+- Has OAuth2 login (e.g., Google, Okta, custom)
+- After login, issues JWT token and **redirects with token or sets shared cookie**
+
+### ✅ `site1.example.com`, `site2.example.com` (Spring Boot clients)
+- No OAuth2 login config
+- Read and validate JWT token (via cookie or redirect param)
+- Authenticated locally using token
+
+---
+
+## 🔒 JWT Token Sharing – Approaches
+- **🔁 Redirect + Token Param:** Send JWT as a URL parameter on redirect (`?token=...`)
+- **🍪 Cookie-based:** Set a shared cookie (`Domain=.example.com`)
+- **📦 Header forwarding:** For internal APIs or AJAX use
+
+We’ll demo both **redirect + token param** and **cookie** below.
+
+---
+
+## 🔧 1. `auth.example.com` Configuration
+
+### `application.yml`:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: YOUR_CLIENT_ID
+            client-secret: YOUR_CLIENT_SECRET
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid, profile, email
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+```
+
+---
+
+### Custom Success Handler
+
+```java
+@Component
+public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+
+    private final JwtService jwtService;
+
+    public OAuth2LoginSuccessHandler(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        Authentication authentication)
+            throws IOException, ServletException {
+
+        String jwt = jwtService.generateToken(authentication);
+
+        // Option 1: Send via redirect param
+        String target = request.getParameter("redirect_uri"); // passed in login request
+        if (target != null && !target.isBlank()) {
+            getRedirectStrategy().sendRedirect(request, response, target + "?token=" + jwt);
+        } else {
+            response.getWriter().write("Login success, no redirect_uri specified.");
+        }
+    }
+}
+```
+
+---
+
+### Security Config
+
+```java
+@Configuration
+public class SecurityConfig {
+    @Bean
+    public SecurityFilterChain security(HttpSecurity http, OAuth2LoginSuccessHandler successHandler) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+            .oauth2Login(oauth -> oauth.successHandler(successHandler));
+        return http.build();
+    }
+}
+```
+
+---
+
+### JWT Service (same as Option 3)
+
+```java
+@Component
+public class JwtService {
+    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+
+    public String generateToken(Authentication auth) {
+        return Jwts.builder()
+                .setSubject(auth.getName())
+                .claim("authorities", auth.getAuthorities())
+                .setIssuedAt(new Date())
+                .setExpiration(Date.from(Instant.now().plus(1, ChronoUnit.HOURS)))
+                .signWith(key)
+                .compact();
+    }
+
+    public Authentication parseToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder().setSigningKey(key).build()
+                    .parseClaimsJws(token).getBody();
+            String username = claims.getSubject();
+            List<GrantedAuthority> authorities = ((List<?>) claims.get("authorities")).stream()
+                    .map(auth -> new SimpleGrantedAuthority(auth.toString()))
+                    .toList();
+            return new UsernamePasswordAuthenticationToken(username, null, authorities);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+}
+```
+
+---
+
+## 🔧 2. `site1.example.com` – Trust JWT from Gateway
+
+This app has no OAuth2 config — it just **accepts the JWT token** (from query param or cookie) and authenticates users.
+
+### JWT Auth Filter
+
+```java
+@Component
+public class JwtAuthFilter extends OncePerRequestFilter {
+
+    @Autowired
+    JwtService jwtService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String token = request.getParameter("token"); // or from cookie/header
+
+        if (token != null) {
+            Authentication auth = jwtService.parseToken(token);
+            if (auth != null) {
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
+```
+
+---
+
+### Security Config for `site1`
+
+```java
+@Configuration
+public class SecurityConfig {
+
+    @Autowired
+    JwtAuthFilter jwtAuthFilter;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf().disable()
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/public/**").permitAll()
+                .anyRequest().authenticated())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+}
+```
+
+---
+
+### 💡 Redirect Example Flow
+
+1. User goes to `site1.example.com/dashboard`
+2. If not authenticated, redirect to:
+   ```
+   https://auth.example.com/oauth2/authorization/google?redirect_uri=https://site1.example.com/auth/callback
+   ```
+3. After login, Spring redirects to:
+   ```
+   https://site1.example.com/auth/callback?token=eyJhbGciOiJI...
+   ```
+4. `site1` reads token from param, authenticates the user
+
+---
+
+## ✅ Optional: Token Relay via Cookie
+
+If you're using shared subdomains (e.g., `.example.com`), you can **set a shared cookie** from `auth.example.com`, and the clients (`site1`, `site2`) can read it like in Option 3.
+
+Use:
+
+```java
+ResponseCookie cookie = ResponseCookie.from("AUTH_TOKEN", jwt)
+    .domain(".example.com")
+    .path("/")
+    .secure(true)
+    .httpOnly(true)
+    .sameSite("Lax")
+    .build();
+response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+```
+
+Then the clients just pull the token from `request.getCookies()` instead of `request.getParameter("token")`.
+
+---
+
+Would you like a working GitHub sample or starter project for this?
