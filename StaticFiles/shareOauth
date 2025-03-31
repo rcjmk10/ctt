@@ -503,3 +503,172 @@ Then the clients just pull the token from `request.getCookies()` instead of `req
 ---
 
 Would you like a working GitHub sample or starter project for this?
+
+-----------------------------------openAI2
+Yes! Here’s a simple **Spring Boot-based implementation** of **Option 1: SSO via OAuth2 Proxy Login**, where:
+
+- **Site1** redirects to **Auth Site** to initiate login.
+- **Auth Site** authenticates with the OAuth server (`wam.company.com`).
+- After successful login, **Auth Site redirects back to Site1** with a **signed JWT**.
+- **Site1 verifies the token** and creates a local session.
+
+---
+
+### 🔧 Assumptions
+- You’re using **Spring Boot + Spring Security + OAuth2 Client**.
+- **JWT** is used as the token format between Auth Site and Site1.
+- A **shared secret** or **public key infrastructure** exists between Site1 and Auth Site.
+
+---
+
+## ✅ 1. **Auth Site** — Initiate OAuth2 Login & Return Token
+
+### `application.yml` (OAuth2 Client Setup)
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          wam:
+            client-id: your-client-id
+            client-secret: your-secret
+            scope: openid, profile, email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            client-name: WAM
+        provider:
+          wam:
+            issuer-uri: https://wam.company.com
+```
+
+### Auth Controller — `/loginProxy`
+```java
+@RestController
+@RequestMapping("/proxy")
+public class ProxyLoginController {
+
+    @GetMapping("/login")
+    public ResponseEntity<Void> proxyLogin(HttpServletRequest request) {
+        String redirectUri = request.getParameter("redirect_uri");
+        request.getSession().setAttribute("redirect_uri", redirectUri);
+        URI uri = URI.create("/oauth2/authorization/wam"); // this triggers Spring Security's login
+        HttpHeaders headers = new HttpHeaders();
+        headers.setLocation(uri);
+        return new ResponseEntity<>(headers, HttpStatus.FOUND);
+    }
+
+    @GetMapping("/callback")
+    public ResponseEntity<Void> handleCallback(Authentication authentication, HttpServletRequest request) {
+        OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
+        
+        // Generate signed JWT (can use Nimbus JOSE + JWT or jjwt)
+        String jwt = JwtUtils.generateToken(oidcUser); // implement this
+
+        String redirectUri = (String) request.getSession().getAttribute("redirect_uri");
+        URI uri = URI.create(redirectUri + "?token=" + jwt);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setLocation(uri);
+        return new ResponseEntity<>(headers, HttpStatus.FOUND);
+    }
+}
+```
+
+> 🔐 **Token Generation** can use `io.jsonwebtoken` or `nimbus-jose-jwt`.
+
+---
+
+## ✅ 2. **Site1** — Accept Token & Authenticate Locally
+
+### `application.yml`
+No need for OAuth2 config unless you plan to directly integrate with `wam.company.com`.
+
+### `TokenAuthenticationFilter.java`
+```java
+public class TokenAuthenticationFilter extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+        throws ServletException, IOException {
+
+        String token = request.getParameter("token");
+        if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            try {
+                Claims claims = JwtUtils.parseToken(token); // validate signature, expiry, etc.
+                String username = claims.getSubject();
+
+                List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(username, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            } catch (JwtException e) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+        }
+        filterChain.doFilter(request, response);
+    }
+}
+```
+
+### Register Filter
+```java
+@Configuration
+public class SecurityConfig {
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .addFilterBefore(new TokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/public/**").permitAll()
+                .anyRequest().authenticated()
+            );
+        return http.build();
+    }
+}
+```
+
+---
+
+## ✅ 3. **JWT Utility (Shared by Both Apps)**
+
+### `JwtUtils.java`
+```java
+public class JwtUtils {
+    private static final String SECRET = "your-shared-secret"; // Store securely
+
+    public static String generateToken(OidcUser user) {
+        return Jwts.builder()
+                .setSubject(user.getEmail())
+                .claim("name", user.getFullName())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 5 * 60 * 1000))
+                .signWith(SignatureAlgorithm.HS256, SECRET)
+                .compact();
+    }
+
+    public static Claims parseToken(String token) {
+        return Jwts.parser()
+                .setSigningKey(SECRET)
+                .parseClaimsJws(token)
+                .getBody();
+    }
+}
+```
+
+---
+
+### 🧪 Flow Test Summary
+
+| Step | Action |
+|------|--------|
+| 1 | Site1 redirects to `https://clientappt.company.com/proxy/login?redirect_uri=https://site1.clientappt.company.com/callback` |
+| 2 | Auth Site authenticates via WAM |
+| 3 | Auth Site generates JWT and redirects back to Site1 with token |
+| 4 | Site1 reads token, verifies it, logs in user |
+
+---
+
+Want me to package this into two minimal Spring Boot starter projects (`site1` and `auth-site`) for local testing?
