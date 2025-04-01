@@ -672,3 +672,93 @@ public class JwtUtils {
 ---
 
 Want me to package this into two minimal Spring Boot starter projects (`site1` and `auth-site`) for local testing?
+
+
+
+Yes — if you’re using a **self-signed SSL certificate** and getting SSL errors with `RestTemplate`, you can configure a custom `RestTemplate` bean that **trusts self-signed certificates**.
+
+Here’s a clean solution using a custom class that builds a `RestTemplate` that **ignores SSL certificate errors**. This is often used **in dev/test environments** — never use this in production unless you explicitly manage security.
+
+---
+
+### ✅ Custom `RestTemplate` that Trusts Self-Signed SSL
+
+```java
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
+
+import javax.net.ssl.*;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+
+public class UnsafeRestTemplateFactory {
+
+    public static RestTemplate create() throws Exception {
+        // Trust manager that ignores certificate validation
+        TrustManager[] trustAllCerts = new TrustManager[]{
+            new X509TrustManager() {
+                public void checkClientTrusted(X509Certificate[] xcs, String string) {}
+                public void checkServerTrusted(X509Certificate[] xcs, String string) {}
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            }
+        };
+
+        // Set up SSL context
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustAllCerts, new SecureRandom());
+
+        // Create socket factory with Noop HostnameVerifier to ignore hostname mismatch
+        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(
+                sslContext, NoopHostnameVerifier.INSTANCE);
+
+        CloseableHttpClient httpClient = HttpClients.custom()
+                .setSSLSocketFactory(socketFactory)
+                .build();
+
+        HttpComponentsClientHttpRequestFactory factory =
+                new HttpComponentsClientHttpRequestFactory(httpClient);
+
+        return new RestTemplate(factory);
+    }
+}
+```
+
+---
+
+### 🧪 Example Usage
+
+```java
+@RestController
+public class TestController {
+
+    @GetMapping("/test-ssl")
+    public String testSSL() throws Exception {
+        RestTemplate restTemplate = UnsafeRestTemplateFactory.create();
+        String response = restTemplate.getForObject("https://your-self-signed-site.local", String.class);
+        return response;
+    }
+}
+```
+
+---
+
+### ⚠️ Important Notes
+
+- This completely **disables SSL certificate validation and hostname verification**. Only use this in:
+  - **Internal tools**
+  - **Local development**
+  - **Testing against mock services**
+- If you're in **production**, it's better to:
+  - Import your self-signed cert into a truststore.
+  - Configure SSL context with proper keystore/truststore.
+
+---
+
+Would you like a version that loads a **custom truststore with your self-signed cert** instead (safer than fully skipping checks)?
