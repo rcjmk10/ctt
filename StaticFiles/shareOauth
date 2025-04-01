@@ -762,3 +762,111 @@ public class TestController {
 ---
 
 Would you like a version that loads a **custom truststore with your self-signed cert** instead (safer than fully skipping checks)?
+
+
+Yes — in **Spring Boot**, you can **conditionally apply filters** based on URL patterns using one of the following approaches:
+
+---
+
+## ✅ Option 1: Configure Filters Manually via `FilterRegistrationBean`
+
+This gives you full control over which URLs each filter applies to.
+
+### Example Setup:
+
+```java
+@Configuration
+public class FilterConfig {
+
+    @Bean
+    public FilterRegistrationBean<LoadingUserFilter> userFilter() {
+        FilterRegistrationBean<LoadingUserFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new LoadingUserFilter());
+        registrationBean.addUrlPatterns("/secure/*"); // Not applied to /public
+        registrationBean.setOrder(1);
+        return registrationBean;
+    }
+
+    @Bean
+    public FilterRegistrationBean<CheckingAddressFilter> addressFilter() {
+        FilterRegistrationBean<CheckingAddressFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new CheckingAddressFilter());
+        registrationBean.addUrlPatterns("/secure/*", "/office/*");
+        registrationBean.setOrder(2);
+        return registrationBean;
+    }
+
+    @Bean
+    public FilterRegistrationBean<OfficeFunctionFilter> officeFilter() {
+        FilterRegistrationBean<OfficeFunctionFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new OfficeFunctionFilter());
+        registrationBean.addUrlPatterns("/office/*"); // Only applies to office
+        registrationBean.setOrder(3);
+        return registrationBean;
+    }
+}
+```
+
+---
+
+## ✅ Option 2: Inside the Filter Itself (Path-Based Logic)
+
+If you want to register a filter globally but have internal logic to skip paths:
+
+```java
+public class LoadingUserFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+        throws IOException, ServletException {
+        HttpServletRequest req = (HttpServletRequest) request;
+        String path = req.getRequestURI();
+
+        if (path.startsWith("/public")) {
+            chain.doFilter(request, response); // Skip filter
+            return;
+        }
+
+        // Execute filter logic
+        // ...
+        chain.doFilter(request, response);
+    }
+}
+```
+
+---
+
+## ✅ Option 3: Use `OncePerRequestFilter` + `AntPathMatcher` for More Complex Rules
+
+```java
+public class ConditionalFilter extends OncePerRequestFilter {
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+        throws ServletException, IOException {
+
+        String path = request.getRequestURI();
+        if (pathMatcher.match("/public/**", path)) {
+            filterChain.doFilter(request, response); // skip
+            return;
+        }
+
+        // Otherwise do the filter logic
+        filterChain.doFilter(request, response);
+    }
+}
+```
+
+---
+
+### Summary of What You Asked:
+
+| URL Path        | Filters Applied                     |
+|----------------|--------------------------------------|
+| `/public/**`    | ❌ `LoadingUserFilter`, `CheckingAddressFilter` |
+| `/office/**`    | ✅ `OfficeFunctionFilter`           |
+| `/secure/**`    | ✅ All relevant filters             |
+
+Use `FilterRegistrationBean` if you want the cleanest and most declarative control.
+
+Let me know if you'd like me to generate a full sample Spring Boot class set for your filters.
