@@ -870,3 +870,150 @@ public class ConditionalFilter extends OncePerRequestFilter {
 Use `FilterRegistrationBean` if you want the cleanest and most declarative control.
 
 Let me know if you'd like me to generate a full sample Spring Boot class set for your filters.
+Yes — the issue you're encountering is common when trying to make one Spring Boot app (Site1) piggyback on another (Auth Site) that is already integrated with an OAuth server.
+
+Let’s walk through how to implement **Option 1: SSO via OAuth2 Proxy Login**, and how to solve the **filter interference issue**.
+
+---
+
+## ✅ Goal Recap
+
+- `site1.clientappt.company.com`: Needs to **SSO via `clientappt.company.com`** (Auth Site)
+- `clientappt.company.com`: Spring Boot app, registered with OAuth2 provider `wam.company.com`
+- Want to avoid OAuth registration on Site1; let Auth Site act as a secure SSO proxy.
+
+---
+
+## ✅ Recommended Setup
+
+### 🏁 High-Level Strategy
+
+1. **User opens Site1** (unauthenticated)
+2. Site1 **redirects to Auth Site** → `/sso/proxy-login?redirect=https://site1...`
+3. Auth Site checks WAM token via `officerContextFilter`
+4. If not authenticated:
+   - Redirects to WAM
+   - Logs in, extracts `officerId`
+5. After successful auth:
+   - Auth Site issues **signed JWT** (or session token) to Site1
+6. Site1 receives token → validates signature → establishes session
+
+---
+
+## 🔐 SSO Proxy Endpoint on Auth Site
+
+```java
+@GetMapping("/sso/proxy-login")
+public void proxyLogin(HttpServletRequest request, HttpServletResponse response,
+                       @RequestParam String redirect) throws IOException {
+    Officer officer = officerContext.getOfficer(); // Retrieved via officerContextFilter
+
+    if (officer == null) {
+        // This will trigger the officerContextFilter to redirect to WAM
+        response.sendRedirect("/login?redirect=" + URLEncoder.encode(redirect, "UTF-8"));
+        return;
+    }
+
+    String jwt = jwtService.createToken(officer); // Sign and encode officer ID, roles, etc.
+    String redirectWithToken = redirect + "?token=" + jwt;
+    response.sendRedirect(redirectWithToken);
+}
+```
+
+---
+
+## 🛡️ Token Validation on Site1
+
+- Site1 must **trust the JWT** signed by Auth Site
+- Ideally use **shared secret or public/private keys**
+
+```java
+@Bean
+public SecurityFilterChain security(HttpSecurity http) throws Exception {
+    http
+      .authorizeHttpRequests(authz -> authz
+          .requestMatchers("/public/**").permitAll()
+          .anyRequest().authenticated()
+      )
+      .addFilterBefore(new JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+}
+```
+
+---
+
+## 🚫 Solving Filter Conflicts
+
+On **Auth Site**, your `officerContextFilter` and others likely block:
+
+- `/sso/proxy-login` from working cleanly
+- Auth Site from **redirecting back to Site1** (because filters interrupt before redirect)
+
+### ✅ Fix: Bypass Filters for Proxy Endpoint
+
+Update your filters like this:
+
+```java
+@Override
+public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
+        throws IOException, ServletException {
+
+    HttpServletRequest request = (HttpServletRequest) req;
+    String path = request.getRequestURI();
+
+    if (path.startsWith("/sso/proxy-login") || path.startsWith("/public")) {
+        chain.doFilter(req, res); // Skip filter
+        return;
+    }
+
+    // Otherwise do filter logic
+    ...
+}
+```
+
+Or use `FilterRegistrationBean` and exclude path like:
+
+```java
+@Bean
+public FilterRegistrationBean<OfficerContextFilter> officerFilter() {
+    FilterRegistrationBean<OfficerContextFilter> reg = new FilterRegistrationBean<>();
+    reg.setFilter(new OfficerContextFilter());
+    reg.addUrlPatterns("/*");
+    reg.setName("officerFilter");
+    reg.setOrder(1);
+    reg.addInitParameter("exclusions", "/sso/proxy-login,/public/*");
+    return reg;
+}
+```
+
+---
+
+## 🔐 Token Creation Example (JWT)
+
+```java
+public String createToken(Officer officer) {
+    return Jwts.builder()
+        .setSubject(officer.getId())
+        .claim("role", officer.getRole())
+        .setIssuedAt(new Date())
+        .setExpiration(new Date(System.currentTimeMillis() + 86400000))
+        .signWith(SignatureAlgorithm.HS512, secretKey)
+        .compact();
+}
+```
+
+---
+
+## 🚀 Summary
+
+| Component | Action |
+|----------|--------|
+| **Site1** | Redirect to Auth Site `/sso/proxy-login?redirect=...` |
+| **Auth Site** | Validates user via WAM, returns signed token to Site1 |
+| **Site1** | Parses and trusts token, logs in user |
+| **Filters** | Skip on `/sso/proxy-login` to avoid interference |
+| **Security** | Use JWT + shared secret or PKI |
+
+---
+
+Would you like a complete working **Spring Boot mini project** with both Site1 and Auth Site configured for this? I can scaffold that next.
