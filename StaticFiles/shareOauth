@@ -1137,3 +1137,57 @@ private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> aut
 ---
 
 Let me know if you want a **full working repo**, or if you're using `WebClient`/`RestTemplate` manually instead of `oauth2Login`.
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> auth
+                .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .tokenEndpoint(token -> token
+                    .accessTokenResponseClient(postAuthCodeTokenResponseClient())
+                )
+            );
+
+        return http.build();
+    }
+
+    private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> postAuthCodeTokenResponseClient() {
+        DefaultAuthorizationCodeTokenResponseClient client = new DefaultAuthorizationCodeTokenResponseClient();
+
+        // Set a custom request entity converter to use POST with form params
+        client.setRequestEntityConverter(new PostClientAuthRequestEntityConverter());
+
+        return client;
+    }
+
+    static class PostClientAuthRequestEntityConverter implements Converter<OAuth2AuthorizationCodeGrantRequest, RequestEntity<?>> {
+        private final OAuth2AuthorizationCodeGrantRequestEntityConverter defaultConverter = new OAuth2AuthorizationCodeGrantRequestEntityConverter();
+
+        @Override
+        public RequestEntity<?> convert(OAuth2AuthorizationCodeGrantRequest request) {
+            RequestEntity<?> entity = defaultConverter.convert(request);
+
+            // Replace the Authorization header with client_id and client_secret in the body
+            MultiValueMap<String, String> formParams = new LinkedMultiValueMap<>();
+            formParams.set("grant_type", "authorization_code");
+            formParams.set("code", request.getAuthorizationExchange().getAuthorizationResponse().getCode());
+            formParams.set("redirect_uri", request.getAuthorizationExchange().getAuthorizationRequest().getRedirectUri());
+            formParams.set("client_id", request.getClientRegistration().getClientId());
+            formParams.set("client_secret", request.getClientRegistration().getClientSecret());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            URI uri = entity.getUrl();
+
+            return new RequestEntity<>(formParams, headers, HttpMethod.POST, uri);
+        }
+    }
+}
+
