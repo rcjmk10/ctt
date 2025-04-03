@@ -1191,3 +1191,76 @@ public class SecurityConfig {
     }
 }
 
+
+package com.example.demo.security;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.*;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.client.endpoint.DefaultAuthorizationCodeTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequestEntityConverter;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RequestEntity;
+import org.springframework.core.convert.converter.Converter;
+
+import java.net.URI;
+
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers("/public/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .tokenEndpoint(token -> token
+                    .accessTokenResponseClient(postAuthCodeTokenResponseClient())
+                )
+            );
+
+        return http.build();
+    }
+
+    // Custom token response client to send client credentials via POST body
+    private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> postAuthCodeTokenResponseClient() {
+        DefaultAuthorizationCodeTokenResponseClient client = new DefaultAuthorizationCodeTokenResponseClient();
+        client.setRequestEntityConverter(new PostClientAuthRequestEntityConverter());
+        return client;
+    }
+
+    // Converter to override client authentication method (POST instead of Basic Auth)
+    static class PostClientAuthRequestEntityConverter implements Converter<OAuth2AuthorizationCodeGrantRequest, RequestEntity<?>> {
+        private final OAuth2AuthorizationCodeGrantRequestEntityConverter defaultConverter = new OAuth2AuthorizationCodeGrantRequestEntityConverter();
+
+        @Override
+        public RequestEntity<?> convert(OAuth2AuthorizationCodeGrantRequest request) {
+            // Convert using default to get URI
+            RequestEntity<?> defaultEntity = defaultConverter.convert(request);
+            URI uri = defaultEntity.getUrl();
+
+            // Build new body with client_id and client_secret
+            MultiValueMap<String, String> formParams = new LinkedMultiValueMap<>();
+            formParams.add(OAuth2ParameterNames.GRANT_TYPE, request.getGrantType().getValue());
+            formParams.add(OAuth2ParameterNames.CODE, request.getAuthorizationExchange().getAuthorizationResponse().getCode());
+            formParams.add(OAuth2ParameterNames.REDIRECT_URI, request.getAuthorizationExchange().getAuthorizationRequest().getRedirectUri());
+            formParams.add(OAuth2ParameterNames.CLIENT_ID, request.getClientRegistration().getClientId());
+            formParams.add(OAuth2ParameterNames.CLIENT_SECRET, request.getClientRegistration().getClientSecret());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            return new RequestEntity<>(formParams, headers, HttpMethod.POST, uri);
+        }
+    }
+}
+
