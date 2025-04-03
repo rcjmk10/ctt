@@ -1017,3 +1017,123 @@ public String createToken(Officer officer) {
 ---
 
 Would you like a complete working **Spring Boot mini project** with both Site1 and Auth Site configured for this? I can scaffold that next.
+
+
+
+Yes! In **Spring Boot 3.2.12** with **Spring Security 6**, if you're implementing an **OAuth2 client** and the **client authentication method is POST** (i.e., `client_secret_post`), you can customize the security configuration to support this.
+
+Here’s a **sample `SecurityConfig`** and associated setup:
+
+---
+
+### ✅ 1. **Spring Security Configuration (Java Config)**
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/login", "/oauth2/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .oauth2Login(Customizer.withDefaults()) // enables oauth2Login with default config
+            .oauth2Client(Customizer.withDefaults()); // enables OAuth2 client support
+
+        return http.build();
+    }
+}
+```
+
+---
+
+### ✅ 2. **Configure `client-authentication-method` to POST in application.yml / properties**
+
+Use the `spring.security.oauth2.client.registration` block:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          my-client:
+            client-id: your-client-id
+            client-secret: your-client-secret
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid, profile, email
+        provider:
+          my-client-provider:
+            authorization-uri: https://provider.com/oauth2/authorize
+            token-uri: https://provider.com/oauth2/token
+            user-info-uri: https://provider.com/userinfo
+            user-name-attribute: sub
+```
+
+---
+
+### ✅ 3. **Override `OAuth2AccessTokenResponseClient` to send POST for client authentication**
+
+Spring Security uses **`BasicAuthenticationConverter`** by default for `client_secret_basic`. To switch to `client_secret_post`, override the token response client like this:
+
+```java
+@Bean
+public OAuth2AuthorizedClientManager authorizedClientManager(
+        ClientRegistrationRepository clientRegistrationRepository,
+        OAuth2AuthorizedClientRepository authorizedClientRepository) {
+
+    OAuth2AuthorizedClientProvider authorizedClientProvider =
+            OAuth2AuthorizedClientProviderBuilder.builder()
+                    .authorizationCode()
+                    .refreshToken()
+                    .clientCredentials()
+                    .build();
+
+    DefaultOAuth2AuthorizedClientManager authorizedClientManager =
+            new DefaultOAuth2AuthorizedClientManager(
+                    clientRegistrationRepository, authorizedClientRepository);
+
+    authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
+
+    // Custom token response client with client_secret_post
+    authorizedClientManager.setAccessTokenResponseClient(authorizationCodeTokenResponseClient());
+
+    return authorizedClientManager;
+}
+
+private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> authorizationCodeTokenResponseClient() {
+    DefaultAuthorizationCodeTokenResponseClient client = new DefaultAuthorizationCodeTokenResponseClient();
+
+    RestTemplate restTemplate = new RestTemplate(Arrays.asList(
+            new FormHttpMessageConverter(),
+            new OAuth2AccessTokenResponseHttpMessageConverter()
+    ));
+
+    // Add custom interceptor to pass client_id and client_secret as form params (client_secret_post)
+    restTemplate.setInterceptors(Collections.singletonList((request, body, execution) -> {
+        if (request.getHeaders().getContentType() == MediaType.APPLICATION_FORM_URLENCODED) {
+            // modify the request here if needed
+        }
+        return execution.execute(request, body);
+    }));
+
+    client.setRestOperations(restTemplate);
+    return client;
+}
+```
+
+---
+
+### 💡 Notes:
+
+- Spring Security uses **client_secret_basic** by default (which sends the client credentials via HTTP Basic Auth header).
+- `client_secret_post` puts `client_id` and `client_secret` in the **body** of the token request.
+- If your provider expects `client_secret_post`, this override is necessary to ensure correct token exchange behavior.
+
+---
+
+Let me know if you want a **full working repo**, or if you're using `WebClient`/`RestTemplate` manually instead of `oauth2Login`.
