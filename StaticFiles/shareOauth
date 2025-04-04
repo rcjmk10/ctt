@@ -1264,3 +1264,28 @@ public class SecurityConfig {
     }
 }
 
+
+🔄 To scan a folder of JARs:
+powershell
+Copy
+Edit
+foreach ($jar in Get-ChildItem -Filter *.jar -Recurse) {
+    Write-Host "Checking $($jar.Name)..."
+    jdeps -v $jar.FullName | findstr javax.servlet
+}
+This will show which JARs import or depend on javax.servlet.
+
+✅ Option 2: Using findstr + jar (without jdeps)
+If jdeps is not available, you can unzip JARs and scan their contents:
+
+🟦 PowerShell script:
+powershell
+Copy
+Edit
+foreach ($jar in Get-ChildItem -Filter *.jar -Recurse) {
+    $output = jar tf $jar.FullName | findstr "javax/servlet"
+    if ($output) {
+        Write-Host "$($jar.Name) uses javax.servlet"
+    }
+}
+This checks if the javax.servlet package is referenced in class names.
