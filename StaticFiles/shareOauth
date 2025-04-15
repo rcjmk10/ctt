@@ -1289,3 +1289,116 @@ foreach ($jar in Get-ChildItem -Filter *.jar -Recurse) {
     }
 }
 This checks if the javax.servlet package is referenced in class names.
+----------
+To disable a **Filter that comes from a dependency (not your own code)** in a **Spring Boot** application, there are several approaches depending on how the filter is registered. Here are your options:
+
+---
+
+## ✅ 1. Disable by **FilterRegistrationBean**
+
+If the filter is registered using `FilterRegistrationBean`, you can override it in your config and disable it:
+
+```java
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class FilterOverrideConfig {
+
+    @Bean
+    public FilterRegistrationBean<?> disableThirdPartyFilter() {
+        FilterRegistrationBean<?> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new DummyFilter()); // placeholder, won't be used
+        registration.setEnabled(false);            // this disables it
+        registration.setName("filterNameFromDependency"); // must match the real name
+        return registration;
+    }
+}
+```
+
+> 🔍 **Important**: You must know the **filter name** as registered by the dependency. You can find it in logs or decompile the dependency JAR to look at the `@WebFilter` or `FilterRegistrationBean`.
+
+---
+
+## ✅ 2. Use `spring.autoconfigure.exclude` (for AutoConfig filters)
+
+If the filter is auto-configured by Spring Boot via some `@Configuration`, you can exclude the auto-configuration class:
+
+```yaml
+spring:
+  autoconfigure:
+    exclude: com.example.dependency.SomeFilterAutoConfiguration
+```
+
+Or in code:
+
+```java
+@SpringBootApplication(exclude = SomeFilterAutoConfiguration.class)
+public class MyApp {}
+```
+
+You’ll need to identify the **exact auto-config class**. Use `spring-boot-actuator` or enable `debug=true` to inspect it.
+
+---
+
+## ✅ 3. Disable by ServletContext `filterRegistration.setEnabled(false)` (advanced)
+
+If you want to manually remove or disable a filter **after it's been registered**, you can write a `ServletContextInitializer`:
+
+```java
+@Bean
+public ServletContextInitializer disableFilterProgrammatically() {
+    return servletContext -> {
+        FilterRegistration filterReg = servletContext.getFilterRegistration("filterName");
+        if (filterReg != null) {
+            // No direct disable API, but you could remove or override
+        }
+    };
+}
+```
+
+⚠️ This method is tricky — Spring Boot doesn't expose a clean disable API here unless you control the filter registration.
+
+---
+
+## ✅ 4. Use Conditional Filter in Your Own Code (if you extend it)
+
+If you can override or extend the 3rd party filter class, override `shouldNotFilter()` or wrap it conditionally:
+
+```java
+@Override
+protected boolean shouldNotFilter(HttpServletRequest request) {
+    return true; // disable this filter
+}
+```
+
+---
+
+## 🔍 How to Find the Filter Name?
+
+Use this in a test config or `CommandLineRunner`:
+
+```java
+@Bean
+public CommandLineRunner showRegisteredFilters(Filter[] filters) {
+    return args -> {
+        System.out.println("Registered filters:");
+        for (Filter filter : filters) {
+            System.out.println(" - " + filter.getClass().getName());
+        }
+    };
+}
+```
+
+Or enable detailed logs:
+
+```yaml
+logging:
+  level:
+    org.springframework.boot.web.servlet: DEBUG
+```
+
+---
+
+Would you like to share the filter class name or its package? I can help you write the exact code to disable it.
