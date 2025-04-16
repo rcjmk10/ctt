@@ -168,3 +168,173 @@ implementation 'com.auth0:java-jwt:4.4.0'
 implementation 'commons-codec:commons-codec:1.17.0'
 */
 
+-----------------------------------------------------------------------------------
+Yes! You can download a user's Microsoft Teams (Azure AD) profile picture using the **Microsoft Graph SDK for Java**. Here's a complete sample using `com.microsoft.graph:microsoft-graph` SDK:
+
+---
+
+### ✅ Prerequisites:
+- Java 11+
+- Microsoft Graph SDK (`microsoft-graph`)
+- An access token with scope: `User.Read` or `User.ReadBasic.All`
+- User ID or UPN (e.g., `user@domain.com`)
+
+---
+
+### 📦 Maven Dependency:
+```xml
+<dependency>
+  <groupId>com.microsoft.graph</groupId>
+  <artifactId>microsoft-graph</artifactId>
+  <version>5.74.0</version> <!-- Use latest -->
+</dependency>
+```
+
+---
+
+### 🧪 Sample Code:
+
+```java
+import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.requests.GraphServiceClient;
+import com.azure.identity.DeviceCodeCredentialBuilder;
+import com.azure.identity.DeviceCodeCredential;
+import com.microsoft.graph.models.ProfilePhoto;
+
+import java.io.InputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Collections;
+import okhttp3.Request;
+
+public class TeamsProfilePictureDownloader {
+
+    public static void main(String[] args) {
+        String userId = "user@yourdomain.com"; // Can also be User ID (GUID)
+        String filePath = "profile_photo.jpg";
+
+        // Step 1: Authenticate with Microsoft Identity (Device Code flow used here)
+        DeviceCodeCredential credential = new DeviceCodeCredentialBuilder()
+            .clientId("<YOUR_CLIENT_ID>")
+            .tenantId("<YOUR_TENANT_ID>")
+            .challengeConsumer(challenge -> System.out.println(challenge.getMessage()))
+            .build();
+
+        TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
+            Collections.singletonList("https://graph.microsoft.com/.default"), credential);
+
+        GraphServiceClient<Request> graphClient = GraphServiceClient.builder()
+            .authenticationProvider(authProvider)
+            .buildClient();
+
+        try {
+            // Step 2: Call Graph API to get the photo stream
+            InputStream photoStream = graphClient.users(userId)
+                .photo()
+                .content()
+                .buildRequest()
+                .get();
+
+            // Step 3: Save the photo to file
+            try (FileOutputStream out = new FileOutputStream(filePath)) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = photoStream.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+            }
+
+            System.out.println("Profile photo saved to " + filePath);
+
+        } catch (Exception e) {
+            System.err.println("Error downloading profile photo: " + e.getMessage());
+        }
+    }
+}
+```
+
+---
+
+### 📌 Notes:
+- If the user doesn't have a profile photo, this will throw a `404 Not Found`.
+- For production use, you'd typically authenticate using `ClientSecretCredential` or `ClientCertificateCredential` for a daemon app.
+
+---
+
+Let me know if you're using a different auth method (like `client_secret`) and I can adjust it accordingly.
+
+-----------------------
+To generate a **public key** from a **private key** (typically in PEM or DER format), it depends on the key algorithm (e.g., RSA, EC). Here's how you can do it:
+
+---
+
+### ✅ Option 1: **Using OpenSSL CLI** (Most common)
+
+#### 🛠️ For RSA Private Key:
+```bash
+openssl rsa -in private_key.pem -pubout -out public_key.pem
+```
+
+#### 🛠️ For EC Private Key:
+```bash
+openssl ec -in private_key.pem -pubout -out public_key.pem
+```
+
+#### 🛠️ For PKCS#8 Format Private Key:
+```bash
+openssl pkey -in private_key.pem -pubout -out public_key.pem
+```
+
+> 🔐 `private_key.pem` should be your private key file, in PEM format.
+
+---
+
+### ✅ Option 2: **Java Code Example (Using BouncyCastle)**
+
+If you'd prefer to do this in Java:
+
+#### 📦 Dependencies:
+```xml
+<dependency>
+  <groupId>org.bouncycastle</groupId>
+  <artifactId>bcprov-jdk15on</artifactId>
+  <version>1.70</version>
+</dependency>
+```
+
+#### 🔍 Java Code (for RSA):
+```java
+import java.io.FileReader;
+import java.security.*;
+import java.security.spec.*;
+import java.util.Base64;
+
+import org.bouncycastle.util.io.pem.PemReader;
+
+public class PrivateToPublicKey {
+
+    public static void main(String[] args) throws Exception {
+        // Load private key
+        PemReader pemReader = new PemReader(new FileReader("private_key.pem"));
+        byte[] content = pemReader.readPemObject().getContent();
+        pemReader.close();
+
+        PKCS8EncodedKeySpec privateSpec = new PKCS8EncodedKeySpec(content);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        PrivateKey privateKey = keyFactory.generatePrivate(privateSpec);
+
+        // Derive public key
+        RSAPrivateCrtKeySpec privSpec = keyFactory.getKeySpec(privateKey, RSAPrivateCrtKeySpec.class);
+        RSAPublicKeySpec publicSpec = new RSAPublicKeySpec(privSpec.getModulus(), privSpec.getPublicExponent());
+        PublicKey publicKey = keyFactory.generatePublic(publicSpec);
+
+        // Output public key (Base64)
+        String encoded = Base64.getEncoder().encodeToString(publicKey.getEncoded());
+        System.out.println("Public Key (Base64):\n" + encoded);
+    }
+}
+```
+
+---
+
+Would you like help converting a specific private key file you have (e.g., `id_rsa`, `.pem`, `.key`)? If yes, you can tell me the format or share a sample structure (no real keys of course), and I’ll tailor the steps.
