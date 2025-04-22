@@ -1402,3 +1402,142 @@ logging:
 ---
 
 Would you like to share the filter class name or its package? I can help you write the exact code to disable it.
+
+Absolutely yes — in **Spring Boot**, you can design a clean and extensible pattern to **track all execution events (success/failure/debug info)** **within a request scope**, and attach those to the final response or return value.
+
+Here’s a high-level approach, then we’ll walk through a simple implementation.
+
+---
+
+## ✅ Goal
+
+- Automatically attach a **`RequestContext` object** to every incoming request.
+- Let all downstream services/controllers log into this context.
+- At the end of the request (e.g., in a Controller), expose this **structured log/history** as part of your response or debugging log.
+
+---
+
+## ✅ Suggested Design Pattern
+
+### 🔹 1. `RequestContext` Class
+
+```java
+public class RequestContext {
+
+    private final List<String> executionLog = new ArrayList<>();
+    private final List<String> errors = new ArrayList<>();
+
+    public void log(String message) {
+        executionLog.add("[INFO] " + message);
+    }
+
+    public void error(String message) {
+        errors.add("[ERROR] " + message);
+    }
+
+    public List<String> getExecutionLog() {
+        return executionLog;
+    }
+
+    public List<String> getErrors() {
+        return errors;
+    }
+}
+```
+
+---
+
+### 🔹 2. `RequestContextHolder` (ThreadLocal)
+
+```java
+public class RequestContextHolder {
+
+    private static final ThreadLocal<RequestContext> contextHolder = new ThreadLocal<>();
+
+    public static void init() {
+        contextHolder.set(new RequestContext());
+    }
+
+    public static RequestContext getContext() {
+        return contextHolder.get();
+    }
+
+    public static void clear() {
+        contextHolder.remove();
+    }
+}
+```
+
+---
+
+### 🔹 3. `Filter` to Initialize/Clear RequestContext
+
+```java
+@Component
+public class RequestContextFilter implements Filter {
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        try {
+            RequestContextHolder.init(); // Initialize for this request
+            chain.doFilter(request, response);
+        } finally {
+            RequestContextHolder.clear(); // Clean up after request
+        }
+    }
+}
+```
+
+---
+
+### 🔹 4. In Your Service / Controller Code
+
+```java
+@RequestMapping("/api/do-something")
+@RestController
+public class MyController {
+
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> process() {
+        RequestContext context = RequestContextHolder.getContext();
+
+        try {
+            context.log("Starting request");
+            // simulate some processing
+            context.log("Step 1 success");
+            // simulate error
+            context.error("Something went wrong in step 2");
+        } catch (Exception e) {
+            context.error("Unhandled exception: " + e.getMessage());
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("result", "OK or FAILED");
+        response.put("log", context.getExecutionLog());
+        response.put("errors", context.getErrors());
+
+        return ResponseEntity.ok(response);
+    }
+}
+```
+
+---
+
+## ✅ Advantages
+
+- All logs are now **accessible at runtime**, not just in log files.
+- Zero coupling to logging framework.
+- Easy to test — all state is in `RequestContext`.
+
+---
+
+## 🧠 Enhancements (Optional)
+
+- You can make `RequestContext` injectable via `@RequestScope` instead of `ThreadLocal` for better testability.
+- You could emit the context into a logging system after controller completes (via `HandlerInterceptor` or `ResponseBodyAdvice`).
+- Add timestamps to logs for latency tracking.
+
+---
+
+Would you like a version of this using Spring AOP (to auto-log method success/failure)?
