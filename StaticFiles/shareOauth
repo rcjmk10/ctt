@@ -1541,3 +1541,186 @@ public class MyController {
 ---
 
 Would you like a version of this using Spring AOP (to auto-log method success/failure)?
+
+Yes — that’s a **great enhancement** to the execution tracking pattern! You can absolutely **predefine an expected event flow** (like a **workflow template**) and have your `RequestContext`:
+
+1. Track the status of each expected step,  
+2. Validate whether each expected step was run,  
+3. Record success/failure per step,  
+4. Assess overall completion status.
+
+---
+
+## ✅ Enhanced Pattern: Predefined Event Flow Tracking
+
+---
+
+### 🔹 Step 1: Define the Flow Template
+
+```java
+public enum StepStatus {
+    PENDING, SUCCESS, FAILED
+}
+
+public class RequestFlow {
+    private final Map<String, StepStatus> steps = new LinkedHashMap<>();
+
+    public RequestFlow(String... stepNames) {
+        for (String step : stepNames) {
+            steps.put(step, StepStatus.PENDING);
+        }
+    }
+
+    public void markSuccess(String step) {
+        steps.put(step, StepStatus.SUCCESS);
+    }
+
+    public void markFailed(String step) {
+        steps.put(step, StepStatus.FAILED);
+    }
+
+    public Map<String, StepStatus> getSteps() {
+        return steps;
+    }
+
+    public boolean isComplete() {
+        return steps.values().stream().allMatch(status -> status == StepStatus.SUCCESS);
+    }
+
+    public List<String> getMissingSteps() {
+        return steps.entrySet().stream()
+                .filter(e -> e.getValue() == StepStatus.PENDING)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+}
+```
+
+---
+
+### 🔹 Step 2: Include in `RequestContext`
+
+```java
+public class RequestContext {
+
+    private final List<String> executionLog = new ArrayList<>();
+    private final List<String> errors = new ArrayList<>();
+    private RequestFlow flow;
+
+    public void setFlow(RequestFlow flow) {
+        this.flow = flow;
+    }
+
+    public RequestFlow getFlow() {
+        return flow;
+    }
+
+    public void log(String message) {
+        executionLog.add("[INFO] " + message);
+    }
+
+    public void error(String message) {
+        errors.add("[ERROR] " + message);
+    }
+
+    public List<String> getExecutionLog() {
+        return executionLog;
+    }
+
+    public List<String> getErrors() {
+        return errors;
+    }
+}
+```
+
+---
+
+### 🔹 Step 3: Controller or Service Code Example
+
+```java
+@RestController
+@RequestMapping("/api/user")
+public class UserController {
+
+    @PostMapping("/update")
+    public ResponseEntity<Map<String, Object>> updateUser(@RequestBody UserDto userDto) {
+        RequestContext context = RequestContextHolder.getContext();
+        RequestFlow flow = new RequestFlow("ReceiveCall", "Validate", "UpdateUserInfo", "UpdateDB", "SendEmail");
+        context.setFlow(flow);
+
+        flow.markSuccess("ReceiveCall");
+        context.log("Received updateUser call");
+
+        try {
+            // Step: Validate
+            flow.markSuccess("Validate");
+            context.log("Validation passed");
+
+            // Step: UpdateUserInfo
+            flow.markSuccess("UpdateUserInfo");
+            context.log("User info updated");
+
+            // Step: UpdateDB
+            flow.markSuccess("UpdateDB");
+            context.log("Database updated");
+
+            // Step: SendEmail
+            flow.markSuccess("SendEmail");
+            context.log("Confirmation email sent");
+
+        } catch (Exception ex) {
+            flow.markFailed("SendEmail");
+            context.error("Failed in SendEmail: " + ex.getMessage());
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("steps", flow.getSteps());
+        result.put("completed", flow.isComplete());
+        result.put("missingSteps", flow.getMissingSteps());
+        result.put("log", context.getExecutionLog());
+        result.put("errors", context.getErrors());
+
+        return ResponseEntity.ok(result);
+    }
+}
+```
+
+---
+
+## ✅ Output Sample
+
+```json
+{
+  "steps": {
+    "ReceiveCall": "SUCCESS",
+    "Validate": "SUCCESS",
+    "UpdateUserInfo": "SUCCESS",
+    "UpdateDB": "SUCCESS",
+    "SendEmail": "FAILED"
+  },
+  "completed": false,
+  "missingSteps": [],
+  "log": [
+    "[INFO] Received updateUser call",
+    "[INFO] Validation passed",
+    "[INFO] User info updated",
+    "[INFO] Database updated"
+  ],
+  "errors": [
+    "[ERROR] Failed in SendEmail: Mail server timeout"
+  ]
+}
+```
+
+---
+
+## 🧠 Bonus Ideas
+
+- Store `RequestFlowTemplate` in config/yaml or DB for each API.
+- Add timestamps per step for latency diagnostics.
+- Auto-wrap service methods with AOP to mark step success/failure automatically.
+- Integrate with observability tools (e.g., Zipkin, Prometheus, ELK).
+
+---
+
+Would you like me to generate a Spring Boot starter project template with this built-in?
