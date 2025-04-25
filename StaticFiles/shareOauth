@@ -450,3 +450,107 @@ export default ProfilePicture;
 
 Would you also like me to show you a version where **Spring Boot** can **automatically compress** the image (e.g., resize to smaller 96x96) **before Base64 encoding** if needed?  
 🔵 It can make the profile picture load much faster in React apps! 🚀
+========================
+Great question! When you download an image (e.g., from Outlook profile or another stream), you can determine whether it is **PNG, JPEG, GIF**, etc., using one of these methods:
+
+---
+
+## ✅ In Java: Detect Image Type from `InputStream`
+
+### 1. **Using `ImageIO`**
+You can use Java's built-in `ImageIO` to detect format from the image content:
+
+```java
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import java.io.InputStream;
+import java.util.Iterator;
+
+public String detectImageFormat(InputStream inputStream) throws IOException {
+    ImageInputStream imageInput = ImageIO.createImageInputStream(inputStream);
+    Iterator<ImageReader> readers = ImageIO.getImageReaders(imageInput);
+
+    if (readers.hasNext()) {
+        ImageReader reader = readers.next();
+        String format = reader.getFormatName(); // e.g., "png", "jpeg", "gif"
+        reader.dispose();
+        return format.toLowerCase();
+    } else {
+        return "unknown";
+    }
+}
+```
+
+⚠️ Note: This reads the stream **partially**, but you may want to wrap the input with `BufferedInputStream` and use `mark()` / `reset()` if you plan to use it again.
+
+---
+
+### 2. **Use Apache Tika (more accurate for binary file types)**
+
+```xml
+<!-- Add to your pom.xml -->
+<dependency>
+    <groupId>org.apache.tika</groupId>
+    <artifactId>tika-core</artifactId>
+    <version>2.9.0</version>
+</dependency>
+```
+
+```java
+import org.apache.tika.Tika;
+
+public String detectMimeType(InputStream inputStream) throws IOException {
+    Tika tika = new Tika();
+    return tika.detect(inputStream); // e.g., "image/png", "image/jpeg", "image/gif"
+}
+```
+
+You can then split the MIME type to get just the extension:
+
+```java
+String mime = detectMimeType(stream); // "image/png"
+String ext = mime.substring(mime.indexOf('/') + 1); // "png"
+```
+
+---
+
+## ✅ Practical Integration in Your Spring Boot App
+
+When saving the image from Outlook Graph:
+```java
+String format = detectImageFormat(pictureStream);
+Path path = Paths.get("/opt/profilePictures/", username + "." + format);
+Files.copy(pictureStream, path);
+```
+
+And then return the correct MIME type and filename in the API or Base64 header:
+```java
+String base64 = Base64Utils.encodeToString(imageBytes);
+String imgTagData = "data:image/" + format + ";base64," + base64;
+```
+
+---
+
+## 🧪 Bonus Debugging Tip
+You can also print the **first few bytes** of the image — many image formats have magic headers:
+
+| Format | Header (Hex) |
+|--------|--------------|
+| PNG    | `89 50 4E 47` |
+| JPG    | `FF D8 FF` |
+| GIF    | `47 49 46 38` |
+
+---
+
+## ✅ Summary
+
+| Method | Accuracy | Usage |
+|--------|----------|-------|
+| `ImageIO` | Good | Lightweight, standard Java |
+| `Apache Tika` | Excellent | Detects MIME from content |
+| File header magic bytes | Manual | For low-level checks |
+
+---
+
+Would you like a utility method that returns both `file extension` and `data:image/...;base64,...` string all in one call? Handy if you need to respond to React with minimal logic on the front end.
