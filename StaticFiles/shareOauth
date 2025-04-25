@@ -225,3 +225,228 @@ If you're running behind **nginx**, you can also reverse proxy `/images/profile/
 ---
 
 Let me know if you’d like a ready-to-deploy Spring Boot starter template or Graph API mock for testing without real MS365 login!
+======================
+============================
+Yes!  
+✅ It is **definitely possible** to encode the received `InputStream` from Outlook profile picture into a **Base64 string**, then send that string to your React app.
+
+On the React side, you simply render it as a normal `<img>` tag with a `data:image/png;base64,...` format.
+
+---
+
+## 🔥 Here's how to do it
+
+### 1. In your **Spring Boot backend**, encode the `InputStream` to Base64 and return it
+
+```java
+import org.springframework.util.Base64Utils;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+
+@RestController
+@RequestMapping("/profile")
+public class ProfileController {
+
+    @Autowired
+    private GraphService graphService;
+
+    @GetMapping("/picture/{username}")
+    public ResponseEntity<String> getProfilePictureBase64(@PathVariable String username) {
+        try {
+            InputStream pictureStream = graphService.getProfilePicture(username);
+
+            // Convert InputStream to byte array
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = pictureStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, bytesRead);
+            }
+
+            byte[] imageBytes = buffer.toByteArray();
+
+            // Encode to Base64
+            String base64Image = Base64Utils.encodeToString(imageBytes);
+
+            return ResponseEntity.ok(base64Image);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body("Error: " + e.getMessage());
+        }
+    }
+}
+```
+
+---
+
+### 2. In your **React frontend**, fetch and render the image
+
+```javascript
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+function ProfilePicture({ username }) {
+  const [imageSrc, setImageSrc] = useState(null);
+
+  useEffect(() => {
+    async function fetchProfilePicture() {
+      try {
+        const response = await axios.get(`/profile/picture/${username}`);
+        const base64Image = response.data;
+        setImageSrc(`data:image/png;base64,${base64Image}`);
+      } catch (error) {
+        console.error('Error fetching profile picture:', error);
+      }
+    }
+
+    fetchProfilePicture();
+  }, [username]);
+
+  return (
+    <div>
+      {imageSrc ? (
+        <img src={imageSrc} alt="Profile" style={{ width: '150px', height: '150px', borderRadius: '50%' }} />
+      ) : (
+        <p>Loading...</p>
+      )}
+    </div>
+  );
+}
+
+export default ProfilePicture;
+```
+
+---
+
+## 📋 Summary
+- **Spring Boot**: Stream → byte array → Base64 string → send in HTTP response.
+- **React**: Receive Base64 string → `data:image/png;base64,...` → render in `<img>`.
+
+---
+
+### ⚡ Bonus Tip:
+If you want to be even cleaner in backend, you could wrap the response in JSON:
+
+```json
+{ "base64Image": "....." }
+```
+and in React:
+```javascript
+const base64Image = response.data.base64Image;
+```
+
+---
+
+Would you also like me to show you a version where the **Spring Boot controller directly returns an `application/json` type response** for even easier React handling? 🚀 (very useful for production!)
+=========================
+===================================
+========================================
+Perfect! Let’s make it even **cleaner** by returning a structured **JSON object** instead of a plain text string — this is **best practice** for API design (especially when React or other frontend apps are consuming it).
+
+---
+
+## ✅ Updated Spring Boot Controller (Return JSON)
+
+```java
+import org.springframework.web.bind.annotation.*;
+import org.springframework.util.Base64Utils;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import java.util.HashMap;
+import java.util.Map;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+
+@RestController
+@RequestMapping("/profile")
+public class ProfileController {
+
+    @Autowired
+    private GraphService graphService;
+
+    @GetMapping("/picture/{username}")
+    public ResponseEntity<Map<String, String>> getProfilePictureBase64(@PathVariable String username) {
+        try {
+            InputStream pictureStream = graphService.getProfilePicture(username);
+
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = pictureStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, bytesRead);
+            }
+
+            byte[] imageBytes = buffer.toByteArray();
+            String base64Image = Base64Utils.encodeToString(imageBytes);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("base64Image", base64Image);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to fetch profile picture: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+}
+```
+
+---
+- 🔥 Now **Spring Boot** returns:
+```json
+{
+  "base64Image": "iVBORw0KGgoAAAANSUhEUgAAAAUA..."
+}
+```
+
+---
+
+## ✅ React Frontend Adjusted
+
+```javascript
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+function ProfilePicture({ username }) {
+  const [imageSrc, setImageSrc] = useState(null);
+
+  useEffect(() => {
+    async function fetchProfilePicture() {
+      try {
+        const response = await axios.get(`/profile/picture/${username}`);
+        const base64Image = response.data.base64Image;
+        setImageSrc(`data:image/png;base64,${base64Image}`);
+      } catch (error) {
+        console.error('Error fetching profile picture:', error);
+      }
+    }
+
+    fetchProfilePicture();
+  }, [username]);
+
+  return (
+    <div>
+      {imageSrc ? (
+        <img src={imageSrc} alt="Profile" style={{ width: '150px', height: '150px', borderRadius: '50%' }} />
+      ) : (
+        <p>Loading...</p>
+      )}
+    </div>
+  );
+}
+
+export default ProfilePicture;
+```
+
+---
+
+## 🎯 Advantages of this JSON way:
+- Easier to **add more fields** later (e.g., image type, size, username).
+- Better **error handling** (structured error messages).
+- Frontend parsing is **consistent** (always `.data.base64Image`).
+
+---
+
+Would you also like me to show you a version where **Spring Boot** can **automatically compress** the image (e.g., resize to smaller 96x96) **before Base64 encoding** if needed?  
+🔵 It can make the profile picture load much faster in React apps! 🚀
