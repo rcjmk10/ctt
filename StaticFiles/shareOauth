@@ -1,22 +1,103 @@
-@Autowired
-PlatformTransactionManager txManagerA;
+To **retrieve a user’s profile picture from Microsoft Graph API using Java**, follow the steps below. This works for **Microsoft 365 accounts** and requires **OAuth 2.0 authentication** with `User.Read` or `User.ReadBasic.All` permission.
 
-@Autowired
-PlatformTransactionManager txManagerB;
+---
 
-public void saveWithManualTx() {
-    TransactionStatus txA = txManagerA.getTransaction(new DefaultTransactionDefinition());
-    TransactionStatus txB = txManagerB.getTransaction(new DefaultTransactionDefinition());
+### ✅ Step-by-Step Guide
 
-    try {
-        repoA.save(...);
-        repoB.save(...);
+#### 1. **Set up dependencies**
+If you are using Maven, include the Microsoft Graph SDK and Auth libraries:
 
-        txManagerA.commit(txA);
-        txManagerB.commit(txB);
-    } catch (Exception ex) {
-        txManagerA.rollback(txA);
-        txManagerB.rollback(txB);
-        throw ex;
+```xml
+<!-- Microsoft Graph SDK -->
+<dependency>
+  <groupId>com.microsoft.graph</groupId>
+  <artifactId>microsoft-graph</artifactId>
+  <version>5.56.0</version>
+</dependency>
+
+<!-- Microsoft Graph Auth Provider -->
+<dependency>
+  <groupId>com.azure</groupId>
+  <artifactId>azure-identity</artifactId>
+  <version>1.10.0</version>
+</dependency>
+```
+
+---
+
+#### 2. **Authenticate with Microsoft Identity**
+Example using `DeviceCodeCredential` for testing purposes:
+
+```java
+import com.azure.identity.DeviceCodeCredential;
+import com.azure.identity.DeviceCodeCredentialBuilder;
+import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.requests.GraphServiceClient;
+
+DeviceCodeCredential credential = new DeviceCodeCredentialBuilder()
+    .clientId("YOUR_CLIENT_ID")
+    .tenantId("YOUR_TENANT_ID")
+    .challengeConsumer(challenge -> System.out.println(challenge.getMessage()))
+    .build();
+
+TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
+    List.of("https://graph.microsoft.com/.default"), credential);
+
+GraphServiceClient<?> graphClient = GraphServiceClient
+    .builder()
+    .authenticationProvider(authProvider)
+    .buildClient();
+```
+
+---
+
+#### 3. **Get the profile photo**
+You can retrieve the profile photo in binary format:
+
+```java
+import com.microsoft.graph.models.ProfilePhoto;
+import okhttp3.Request;
+import okhttp3.Response;
+import java.io.InputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+String userId = "me"; // or use the user's UPN or ID
+
+InputStream photoStream = graphClient
+    .users(userId)
+    .photo()
+    .content()
+    .buildRequest()
+    .get();
+
+try (FileOutputStream out = new FileOutputStream("profile_picture.jpg")) {
+    byte[] buffer = new byte[4096];
+    int bytesRead;
+    while ((bytesRead = photoStream.read(buffer)) != -1) {
+        out.write(buffer, 0, bytesRead);
     }
+    System.out.println("Profile picture saved to profile_picture.jpg");
+} catch (IOException e) {
+    e.printStackTrace();
 }
+```
+
+---
+
+### 🔐 Required Permissions
+In **Azure App Registration**, ensure you grant at least one of:
+- `User.Read`
+- `User.ReadBasic.All`
+
+For users other than "me", you must consent to `User.ReadBasic.All`.
+
+---
+
+### 📝 Notes
+- If the user has **no profile photo**, a `404 Not Found` is returned.
+- The default size is `48x48`. You can request other sizes like `/photo/$value` or `/photos/96x96/$value`.
+
+---
+
+Would you like a working demo Spring Boot project setup or an example using a different auth method (like client credentials)?
