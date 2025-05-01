@@ -10,6 +10,23 @@ System.out.println("Out of Office Status: " + autoReplies.status);
 System.out.println("Internal Reply: " + autoReplies.internalReplyMessage);
 System.out.println("External Reply: " + autoReplies.externalReplyMessage);
 
+JsonObject autoReplies = json.getAsJsonObject("automaticRepliesSetting");
+
+String status = autoReplies.get("status").getAsString();
+JsonObject start = autoReplies.getAsJsonObject("scheduledStartDateTime");
+JsonObject end = autoReplies.getAsJsonObject("scheduledEndDateTime");
+
+String startTime = start.get("dateTime").getAsString();
+String startZone = start.get("timeZone").getAsString();
+
+String endTime = end.get("dateTime").getAsString();
+String endZone = end.get("timeZone").getAsString();
+
+System.out.printf("Auto-reply scheduled from %s (%s) to %s (%s)\n",
+        startTime, startZone, endTime, endZone);
+
+
+
 MessageRuleCollectionPage rules = graphClient
     .me()
     .mailFolders("inbox")
