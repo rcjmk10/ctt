@@ -213,3 +213,60 @@ API layer: request/response
 Service layer: validation, logic, dual-write
 
 Persistence: own DB + legacy sync
+
+
+If Outlook is the true source of truth, then auto-syncing into Delegate DB is necessary — but should be done carefully, ideally with explicit user confirmation if you detect conflicts or overwrites.
+
+🎯 Key Principle: Respect the System of Record
+Outlook is the system of record for Out of Office (OOO) settings.
+
+Delegate is just an orchestrator/manager — it should never assume authority over the settings without validation.
+
+🧠 Design Recommendations
+✅ Yes: Auto-sync from Outlook on login (or webhook/polling)
+On user login to Delegate App:
+
+Fetch the latest OOO settings from Outlook via Microsoft Graph API.
+
+Sync into Delegate DB.
+
+⚠️ Handle conflicts wisely:
+If Outlook settings differ from what’s stored in Delegate DB (i.e., user made a change directly in Outlook), then:
+
+Option 1: Show and Ask
+Prompt the user:
+
+"We noticed your current Outlook Out-of-Office setting differs from what was saved previously in Delegate.
+Would you like to keep your Outlook setting, or update it via Delegate?"
+
+Option 2: Silent Sync (for known-safe fields)
+If the fields are read-only or low-risk (e.g., end date auto-extended), you can silently sync into your DB — but must log or audit it.
+
+🔄 Sync Flow Example (Best Practice)
+mermaid
+Copy
+Edit
+graph TD
+    A[User logs in to Delegate] --> B[Call Microsoft Graph API]
+    B --> C[Compare Outlook OOO with Delegate DB]
+    C -->|Same| D[No update needed]
+    C -->|Different| E[Prompt user: keep Outlook or use Delegate value?]
+    E -->|User chooses Outlook| F[Update Delegate DB from Outlook]
+    E -->|User chooses Delegate| G[Push Delegate setting to Outlook]
+🧩 Implementation Tips
+Use changeHash or lastUpdatedAt fields to detect changes.
+
+Consider webhooks (Outlook's Microsoft Graph supports subscription to OOO changes).
+
+Keep an audit trail of each sync: source, time, and which fields changed.
+
+❌ What to Avoid
+Anti-pattern	Why It's Risky
+Blindly overwriting Outlook from Delegate	Might undo user’s manual change done in native Outlook
+Ignoring Outlook changes	Delegate DB becomes stale — downstream apps show wrong info
+Treating Delegate as master	Confuses user expectations and makes sync logic brittle
+
+✅ Conclusion
+Outlook is the master; Delegate must sync carefully and confirm with users when there's potential conflict.
+
+This approach builds user trust and avoids silent data corruption.
