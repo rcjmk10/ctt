@@ -1,0 +1,167 @@
+Summary of Requirements:
+Existing Outlook OOO app persists settings to Intralink DB.
+
+New Delegate App will manage OOO settings for multiple apps, with richer metadata (audit, config).
+
+MVP1 only supports Outlook but should pave the way for future extensions.
+
+Intralink DB is still required temporarily due to 3–4 downstream dependencies.
+
+Goal is to decommission the current OOO app eventually.
+
+🅰 Option A: New Delegate DB + Dual Writes
+Description:
+New DB stores the full data model. Delegate app writes to both the new Delegate DB and the legacy Intralink DB. Downstreams can be migrated to call Delegate APIs.
+
+Pros:
+✅ Future-proof: Enables richer data model (audit, config, multi-app).
+
+✅ Decoupled architecture: Downstream systems will eventually consume REST APIs rather than directly querying a DB.
+
+✅ Transition-friendly: Can run dual-write during transition, eventually dropping legacy DB writes when downstreams migrate.
+
+Cons:
+❗ Complexity of dual writes: Needs transactions across two DBs (could use distributed transaction patterns or compensating logic).
+
+❗ Data sync: You must handle edge cases (network failure, DB partial writes).
+
+❗ Latency: Sync from Outlook → DB on login can add complexity.
+
+🅱 Option B: Proxy to Existing OOO App
+Description:
+Delegate app just forwards requests to existing OOO app (which writes to Intralink DB). No new DB, no dual write in MVP1.
+
+Pros:
+✅ Simpler MVP1: Minimal development overhead, minimal risk.
+
+✅ Avoids dual-write headache in short term.
+
+Cons:
+❌ Creates a hard dependency on the legacy app, making it harder to fully decommission.
+
+❌ Cannot record enhancements (e.g., audit/history) since you can’t extend existing DB.
+
+❌ Poor separation of concerns: The new app remains a wrapper over a legacy system.
+
+❌ Post-MVP migration will be painful: Will still have to build Delegate DB and data migration scripts.
+
+🧠 Recommendation: Favor Option A (New DB + Dual Write), with Guardrails
+Why?
+Because Option A supports long-term goals:
+
+Flexible and scalable.
+
+Enables multi-app support, full audit, and configuration model.
+
+Smoothly transitions away from legacy DB and app.
+
+How to Mitigate Option A Risks:
+Abstract DB writes behind service layer so dual-write logic is centralized.
+
+Use idempotent operations to prevent data mismatches.
+
+Add error logging and retry queue for failed writes to either DB.
+
+Gradually migrate downstreams to REST APIs, then remove Intralink DB writes.
+
+Optional Phased Approach (Hybrid Strategy):
+You could use a phased rollout:
+
+Phase 1 (MVP1): Implement Option A but enable only writing to new DB. Run sync jobs to replicate to Intralink DB.
+
+Phase 2: Add real-time dual writes with retry handling.
+
+Phase 3: Migrate downstreams to use REST API.
+
+Phase 4: Decommission legacy app + DB.
+
+Yes — using idempotent operations is key in a dual-write or retry-prone architecture like your Delegate App. An idempotent operation is one that can be called multiple times with the same inputs and produce the same result, without unintended side effects (like duplicates or incorrect data).
+
+✅ Example Scenario: Saving OOO Settings for Outlook
+Let’s say a user updates their OOO settings via the Delegate App. You want to ensure:
+
+If the call fails halfway (e.g., written to Delegate DB but not Intralink DB), retry won’t duplicate or corrupt data.
+
+You can safely replay or retry the API or DB write.
+
+🧩 Example Design for Idempotent OOO Update
+Data Model:
+
+sql
+Copy
+Edit
+CREATE TABLE out_of_office_settings (
+    officer_id VARCHAR(20),
+    transit_id VARCHAR(10),
+    app_name VARCHAR(50),
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    message TEXT,
+    last_updated_at TIMESTAMP,
+    PRIMARY KEY (officer_id, transit_id, app_name)
+);
+API Contract:
+
+json
+Copy
+Edit
+PUT /delegate/ooo-settings
+{
+  "officerId": "12345",
+  "transitId": "5678",
+  "appName": "Outlook",
+  "startDate": "2025-05-12T08:00:00Z",
+  "endDate": "2025-05-18T08:00:00Z",
+  "message": "I'm out of office this week"
+}
+Implementation Logic:
+
+java
+Copy
+Edit
+// Pseudo-code (Java / Spring-like)
+
+@Transactional
+public void updateOooSettings(OooRequest req) {
+    var existing = oooRepository.findById(req.officerId, req.transitId, req.appName);
+
+    if (existing.isPresent() &&
+        existing.get().getStartDate().equals(req.startDate) &&
+        existing.get().getEndDate().equals(req.endDate) &&
+        existing.get().getMessage().equals(req.message)) {
+        // Already up to date — skip write
+        return;
+    }
+
+    // Upsert logic (insert or update)
+    oooRepository.saveOrUpdate(req);
+
+    // Dual write to legacy DB (similarly idempotent)
+    intralinkSyncService.sync(req);  // same check + update logic
+}
+🔁 Retry Scenario Handling
+Let’s say:
+
+Delegate DB write succeeds ✅
+
+Intralink DB write fails ❌
+
+On retry:
+
+The API receives identical input (same officerId, transitId, appName, startDate, etc.)
+
+Because the operation is idempotent, reprocessing is safe:
+
+It doesn’t create new rows.
+
+It doesn’t overwrite good data with wrong values.
+
+It avoids redundant log entries or audit bloat.
+
+✅ Key Practices for Idempotency
+Best Practice	Why It Helps
+Use natural keys or UUIDs	So repeated requests reference the same entity
+Use PUT or PATCH, not POST	Avoid auto-generating duplicate records
+Implement "compare-then-update" logic	Prevent unnecessary writes
+Add lastUpdatedAt timestamps	Help detect staleness or duplicate writes
+Record operationId in logs	Trace retries and prevent reprocessing
