@@ -165,3 +165,51 @@ Use PUT or PATCH, not POST	Avoid auto-generating duplicate records
 Implement "compare-then-update" logic	Prevent unnecessary writes
 Add lastUpdatedAt timestamps	Help detect staleness or duplicate writes
 Record operationId in logs	Trace retries and prevent reprocessing
+
+
+🔧 What Is Separation of Concerns?
+Separation of concerns (SoC) is a fundamental software architecture principle that says:
+
+Different parts of a system should handle distinct responsibilities, and those responsibilities should be clearly isolated.
+
+When you respect SoC:
+
+Each module or layer is focused, easier to maintain, and testable.
+
+You can evolve or replace one part without affecting others.
+
+❌ In Option B: The Delegate App Violates SoC
+In Option B, the new Delegate App doesn’t do real work — it just wraps or forwards calls to the existing OOO App.
+
+That causes:
+Issue	Description
+🧱 Tight Coupling	Delegate App is bound to the logic, DB schema, and lifecycle of the legacy OOO App. It can't evolve independently.
+🕳️ No Domain Logic	The new app has no real logic or data model of its own — it’s just a proxy.
+🔄 Duplicate concerns	Any validation, business rules, or audit logic has to live in the legacy app (not reusable for new features).
+🚫 No data ownership	Delegate App can't extend data (e.g., user history, config, multi-app settings) without depending on legacy internals.
+
+📉 Result: Delegate App Becomes a “Fake” System
+Instead of being a real source of truth, or an owner of its own domain logic, the Delegate App becomes:
+
+A façade with no autonomy.
+
+A technical debt magnet: adding a new app (like ServiceNow or Alibaba) means patching the legacy system again.
+
+A blocker for decommissioning the legacy OOO App.
+
+✅ In Contrast: Option A Has Proper SoC
+With Option A:
+
+The Delegate App owns the domain logic (OOO settings, config, audit).
+
+The Delegate DB owns the data model.
+
+The legacy OOO App becomes optional, then removable.
+
+Each layer has clear responsibilities:
+
+API layer: request/response
+
+Service layer: validation, logic, dual-write
+
+Persistence: own DB + legacy sync
