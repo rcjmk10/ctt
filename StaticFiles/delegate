@@ -270,3 +270,94 @@ Treating Delegate as master	Confuses user expectations and makes sync logic brit
 Outlook is the master; Delegate must sync carefully and confirm with users when there's potential conflict.
 
 This approach builds user trust and avoids silent data corruption.
+----------------------
+Yes, you can dynamically assign a new role such as `"ROLE_ResourceManager"` after login in Spring Boot by customizing the `AuthenticationSuccessHandler`. Here’s how you can do it:
+
+### 1. **Create a Custom `AuthenticationSuccessHandler`**
+
+You can extend `SimpleUrlAuthenticationSuccessHandler` or implement `AuthenticationSuccessHandler` directly. In the `onAuthenticationSuccess` method, you can add the role dynamically.
+
+### 2. **Sample Code: Add Role in Success Handler**
+
+```java
+@Component
+public class CustomAuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        Authentication authentication) throws IOException, ServletException {
+
+        // Current authorities
+        Collection<? extends GrantedAuthority> currentAuthorities = authentication.getAuthorities();
+
+        // Add new role
+        List<GrantedAuthority> updatedAuthorities = new ArrayList<>(currentAuthorities);
+        updatedAuthorities.add(new SimpleGrantedAuthority("ROLE_ResourceManager"));
+
+        // Create new Authentication with added role
+        Authentication newAuth = new UsernamePasswordAuthenticationToken(
+                authentication.getPrincipal(),
+                authentication.getCredentials(),
+                updatedAuthorities
+        );
+
+        // Set the new Authentication in the context
+        SecurityContextHolder.getContext().setAuthentication(newAuth);
+
+        // Continue with default behavior
+        super.onAuthenticationSuccess(request, response, newAuth);
+    }
+}
+```
+
+### 3. **Configure the Handler in Your Security Config**
+
+In your `SecurityConfiguration`:
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Autowired
+    private CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .formLogin()
+                .successHandler(customAuthenticationSuccessHandler)
+            .and()
+                .authorizeRequests()
+                .anyRequest().authenticated();
+    }
+}
+```
+
+---
+
+### 🔒 Important Note:
+
+Adding roles this way only updates the roles *for the current session*. If you want to persist role changes (e.g., in the database), you need to update the user’s roles at the persistence layer and re-load them on future logins.
+
+Let me know if you want to integrate it with database-backed roles or JWT-based authentication.
+
+`SimpleGrantedAuthority` is part of the Spring Security framework. You can import it using:
+
+```java
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+```
+
+### 📦 Maven Dependency
+
+If it's not resolving, make sure you have the Spring Security dependency in your `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+```
+
+Let me know if you are using Gradle or a custom security setup and I can adjust accordingly.
