@@ -439,3 +439,42 @@ protected void configure(HttpSecurity http) throws Exception {
 * If you want role persistence across logins, consider customizing the `OAuth2UserService` and enriching roles at that level based on external data (e.g., DB or claims).
 
 Would you like a version that fetches roles from DB or user attributes (like from Azure AD or Google claims)?
+
+
+CREATE TABLE out_of_office_delegate (
+scotia_id VARCHAR(50),
+officer_id VARCHAR(20),
+transit VARCHAR(20),
+start_date DATE,
+return_date DATE,
+delegate_scotia_id VARCHAR(50),
+delegate_officer_id VARCHAR(20),
+delegate_email VARCHAR(50),
+app_name VARCHAR(30),
+message VARCHAR(2000),
+create_date TIMESTAMP,
+last_upd_timestamp TIMESTAMP,
+CONSTRAINT pk_out_of_office_delegate PRIMARY KEY (scotia_id, app_name)
+);
+
+CREATE TABLE out_of_office_history (
+id SERIAL PRIMARY KEY,
+officer_id VARCHAR(10),
+scotia_id VARCHAR(10),
+transit VARCHAR(10),
+start_date DATE,
+return_date DATE,
+additional_message VARCHAR(4000),
+last_upd_timestamp TIMESTAMP,
+full_name VARCHAR(200),
+email VARCHAR(100),
+create_date TIMESTAMP,
+app_name VARCHAR(50),
+status VARCHAR(20),
+delegate_scotia_id VARCHAR(50),
+delegate_email VARCHAR(100),
+external_reply_msg VARCHAR(2000),
+action VARCHAR(20),
+delegate_officer_id VARCHAR(30)
+);
+
