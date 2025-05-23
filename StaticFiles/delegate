@@ -477,4 +477,23 @@ external_reply_msg VARCHAR(2000),
 action VARCHAR(20),
 delegate_officer_id VARCHAR(30)
 );
-
+CREATE TABLE employee (
+id SERIAL PRIMARY KEY,
+country VARCHAR(255),
+email VARCHAR(255),
+employee_number VARCHAR(255),
+employer VARCHAR(255),
+employment_type VARCHAR(255),
+first_name VARCHAR(255),
+grade_num_belowwp VARCHAR(255),
+is_active VARCHAR(255),
+job_code VARCHAR(255),
+last_name VARCHAR(255),
+manager_employee_number VARCHAR(255),
+quid VARCHAR(255),
+phased_in VARCHAR(255),
+prefer_language VARCHAR(255),
+province VARCHAR(255),
+record_type VARCHAR(255),
+transit VARCHAR(255)
+);
