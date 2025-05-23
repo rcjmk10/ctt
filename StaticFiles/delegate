@@ -361,3 +361,81 @@ If it's not resolving, make sure you have the Spring Security dependency in your
 ```
 
 Let me know if you are using Gradle or a custom security setup and I can adjust accordingly.
+
+
+
+Yes, you can recreate an `OAuth2AuthenticationToken` with an additional role (authority) after successful login in Spring Security. However, unlike `UsernamePasswordAuthenticationToken`, `OAuth2AuthenticationToken` is immutable, so you need to **construct a new instance** with your updated authorities and replace the authentication in the `SecurityContext`.
+
+### ✅ How to Recreate `OAuth2AuthenticationToken` with New Role
+
+Here’s how you can do it in a custom `AuthenticationSuccessHandler`:
+
+```java
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.*;
+
+@Component
+public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler {
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        org.springframework.security.core.Authentication authentication) throws IOException {
+
+        if (authentication instanceof OAuth2AuthenticationToken oAuth2Token) {
+            // Copy existing authorities
+            List<GrantedAuthority> updatedAuthorities = new ArrayList<>(oAuth2Token.getAuthorities());
+
+            // Add new authority
+            updatedAuthorities.add(new SimpleGrantedAuthority("ROLE_ResourceManager"));
+
+            // Create new token
+            OAuth2AuthenticationToken newAuth = new OAuth2AuthenticationToken(
+                    oAuth2Token.getPrincipal(),
+                    updatedAuthorities,
+                    oAuth2Token.getAuthorizedClientRegistrationId()
+            );
+
+            // Replace the current authentication
+            SecurityContextHolder.getContext().setAuthentication(newAuth);
+        }
+
+        // Redirect or handle response
+        response.sendRedirect("/");
+    }
+}
+```
+
+### 🔧 Register the Handler
+
+In your `SecurityConfig`:
+
+```java
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+        .oauth2Login()
+            .successHandler(customOAuth2SuccessHandler)
+        .and()
+            .authorizeRequests()
+            .anyRequest().authenticated();
+}
+```
+
+---
+
+### 📝 Notes
+
+* This change is **in-memory only** for the current session.
+* If you want role persistence across logins, consider customizing the `OAuth2UserService` and enriching roles at that level based on external data (e.g., DB or claims).
+
+Would you like a version that fetches roles from DB or user attributes (like from Azure AD or Google claims)?
