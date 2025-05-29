@@ -1,0 +1,25 @@
+containers:
+  - name: springboot-app
+    image: gcr.io/your-project/springboot-app:latest
+    env:
+      - name: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://127.0.0.1:5432/your_db
+      - name: SPRING_DATASOURCE_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: db-credentials
+            key: username
+      - name: SPRING_DATASOURCE_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: db-credentials
+            key: password
+
+  - name: cloud-sql-proxy
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.7.1
+    args:
+      - "--address=0.0.0.0"
+      - "--port=5432"
+      - "your-project-id:region:db-01"
+    securityContext:
+      runAsNonRoot: true
