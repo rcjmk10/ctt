@@ -1,0 +1,217 @@
+# Migration Documentation: Out of Office to Delegate Application
+
+## Overview
+
+This document outlines the application migration strategy from the existing **Out of Office** system to the new **Delegate** application. The purpose is to extend support for multiple bank applications and standardize Out of Office management through a unified Delegate platform. This guide is intended for downstream teams who will be impacted by the migration and need to plan accordingly.
+
+The migration will occur in **phased stages**, ensuring a smooth transition while minimizing disruption. This documentation includes technical descriptions, PlainUML diagrams, timelines, and API integration details. The document is structured to assist developers, database administrators, QA teams, and integration architects.
+
+---
+
+## Table of Contents
+
+1. Introduction
+2. Business and Technical Objectives
+3. Migration Strategy and Phases
+4. Application Architecture Changes
+5. Database Transition Plan
+6. API Changes and Integration Points
+7. PlainUML Diagrams
+8. Risks and Mitigation
+9. Timeline and Milestones
+10. Action Items for Downstream Teams
+11. FAQs
+
+---
+
+## 1. Introduction
+
+The Out of Office (OOO) system has historically been a standalone application tied to the IntraLink platform. As business demands grow, supporting multiple internal applications and enhanced delegation workflows is essential. The Delegate application is built to support this evolving need with improved scalability, separate persistence, and a more service-oriented architecture.
+
+---
+
+## 2. Business and Technical Objectives
+
+### Business Goals
+
+* Support more banking applications via centralized delegation.
+* Reduce maintenance of legacy Out of Office (OOO) platform.
+* Enable easier reporting and compliance tracking.
+
+### Technical Goals
+
+* Migrate API functions from OOO to Delegate.
+* Maintain backwards compatibility during parallel run.
+* Provide service-based access to all Out of Office data.
+* Consolidate data into a new Delegate-specific database.
+
+---
+
+## 3. Migration Strategy and Phases
+
+### Phase 1: Preparation
+
+* OOO remains operational.
+* Delegate goes live with basic API and DB readiness.
+
+### Phase 2: API Migration
+
+* Redirect selected API calls to Delegate.
+* Maintain legacy routes for compatibility.
+
+### Phase 3: Parallel Run
+
+* Both OOO and Delegate run in parallel.
+* User can use either application to configure OOO status.
+
+### Phase 4: Final Cutover
+
+* Out of Office is decommissioned.
+* All data fully migrated.
+* Delegate becomes the only source of truth.
+
+---
+
+## 4. Application Architecture Changes
+
+| Component   | Legacy (OOO)                        | New (Delegate)           |
+| ----------- | ----------------------------------- | ------------------------ |
+| Platform    | IntraLink                           | Standalone Spring Boot   |
+| DB          | Shared legacy DB                    | Dedicated PostgreSQL     |
+| Auth/AuthZ  | OAuth2 with officer context profile | OAuth2 with roles        |
+| API Access  | RESTful API                         | RESTful service endpoint |
+| Logging     | Spring Boot Logging                 | Central Log aggregation  |
+| Integration | Moderate coupling                   | RESTful and decoupled    |
+
+---
+
+## 5. Database Transition Plan
+
+The current OOO system stores settings in IntraLink-managed tables. These tables will be deprecated. Delegate introduces its own database schema optimized for:
+
+* Profile management
+* Setting histories and logging
+* Delegation records with audit trail
+
+### Key Tables in Delegate:
+
+* `delegate_profiles`
+* `out_of_office_settings`
+* `audit_logs`
+
+All existing records will be migrated and mapped with legacy ID references.
+
+---
+
+## 6. API Changes and Integration Points
+
+### Legacy API (OOO):
+
+* `GET /ooo/settings/{userId}`
+* `POST /ooo/settings`
+
+### New API (Delegate):
+
+* `GET /delegate/outofoffice/{employeeId}`
+* `POST /delegate/outofoffice`
+* `PUT /delegate/outofoffice`
+
+### Authentication:
+
+* OOO: OAuth2 with officer profile context
+* Delegate: OAuth2 with scoped roles
+
+### Notes for Downstream Teams:
+
+* Begin migrating API calls to the new `/delegate/*` endpoints.
+* Validate OAuth2 token handling in downstream systems.
+* Please reach out with **specific API requirements** needed for your application use case. The migration team will work to prioritize or align those endpoints as needed.
+
+---
+
+## 7. PlainUML Diagrams
+
+```plantuml
+@startuml
+actor User
+participant "Out of Office App" as OOO
+participant "Delegate App" as Delegate
+participant "Shared DB" as SharedDB
+participant "Delegate DB" as DelDB
+
+== Parallel Run ==
+User -> OOO: Set OOO
+OOO -> SharedDB: Write OOO setting
+
+User -> Delegate: Set OOO
+Delegate -> DelDB: Write new OOO setting
+Delegate -> SharedDB: Sync legacy record (optional)
+
+== Final Cutover ==
+OOO -x User: Decommissioned
+User -> Delegate: Set OOO
+Delegate -> DelDB: Write setting
+@enduml
+```
+
+---
+
+## 8. Risks and Mitigation
+
+| Risk                            | Impact                     | Mitigation                              |
+| ------------------------------- | -------------------------- | --------------------------------------- |
+| Data desync during parallel run | Inconsistent status        | Sync scheduler + conflict resolution    |
+| OAuth2 integration delay        | Auth failure in downstream | Provide token sample + early testing    |
+| Legacy client tight coupling    | Migration blocked          | Provide adapter layer or fallback route |
+| API format mismatch             | Runtime errors             | Versioned API + JSON schema validation  |
+
+---
+
+## 9. Timeline and Milestones
+
+| Milestone                 | Date (Tentative)   |
+| ------------------------- | ------------------ |
+| Delegate v1 API ready     | July 15, 2025      |
+| Parallel run starts       | August 1, 2025     |
+| All client migration done | September 15, 2025 |
+| Final cutover             | October 1, 2025    |
+| OOO decommission complete | October 10, 2025   |
+
+---
+
+## 10. Action Items for Downstream Teams
+
+1. Review new Delegate API specifications.
+2. Begin integration testing with OAuth2 secured endpoints.
+3. Identify all existing OOO dependencies and transition.
+4. Plan logging and monitoring with Delegate log format.
+5. Confirm database access is no longer needed from legacy OOO tables.
+6. Submit a list of **specific API needs** to the migration team for inclusion and prioritization.
+
+---
+
+## 11. FAQs
+
+### Q1: Can users still use the old Out of Office app?
+
+Yes, during the parallel run period. After the cutover date, it will be disabled.
+
+### Q2: Will historical OOO data be preserved?
+
+Yes, all relevant settings and audit logs will be migrated to the Delegate database.
+
+### Q3: How is data synced between the two apps during parallel?
+
+Delegate will optionally sync records to the shared legacy tables if required by integration.
+
+### Q4: How will downstream systems access OOO settings?
+
+Only via Delegate’s service API.
+
+### Q5: Do we need to request new firewall rules?
+
+If your app is external or lives in a different VPC, yes. Please work with the network team.
+
+---
+
+Please direct further questions or integration-specific concerns to the migration team at: `delegate-migration@company.com`.
