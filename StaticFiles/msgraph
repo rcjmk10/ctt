@@ -1,0 +1,50 @@
+import com.azure.identity.ClientSecretCredential;
+<dependency>
+  <groupId>com.microsoft.graph</groupId>
+  <artifactId>microsoft-graph</artifactId>
+  <version>5.76.0</version> <!-- or latest -->
+</dependency>
+<dependency>
+  <groupId>com.azure</groupId>
+  <artifactId>azure-identity</artifactId>
+  <version>1.9.0</version>
+</dependency>
+
+
+
+import com.azure.identity.ClientSecretCredentialBuilder;
+import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.requests.GraphServiceClient;
+import okhttp3.OkHttpClient;
+
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.util.Collections;
+
+public class GraphClientWithProxy {
+
+    public static GraphServiceClient<?> createClient() {
+        // Step 1: Proxy setup
+        Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("your-proxy-host", 8080));
+        OkHttpClient httpClient = new OkHttpClient.Builder()
+            .proxy(proxy)
+            .build();
+
+        // Step 2: Authentication
+        ClientSecretCredential credential = new ClientSecretCredentialBuilder()
+            .clientId("YOUR_CLIENT_ID")
+            .clientSecret("YOUR_CLIENT_SECRET")
+            .tenantId("YOUR_TENANT_ID")
+            .build();
+
+        TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
+            Collections.singletonList("https://graph.microsoft.com/.default"), credential
+        );
+
+        // Step 3: Build Graph client with proxy-enabled HTTP client
+        return GraphServiceClient.builder()
+            .authenticationProvider(authProvider)
+            .httpClient(httpClient)
+            .buildClient();
+    }
+}
