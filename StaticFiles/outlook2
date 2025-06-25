@@ -1,62 +1,39 @@
-Perfect — since your `encodedCertificate` is a **Base64-encoded `.pem` keystore** (which likely contains both the private key and the certificate), we can parse both directly from that input.
-
-Here's how you can complete your code using Option 1, assuming:
-
-* `encodedCertificate` contains the full `.pem` file:
-
-  * Starts with `-----BEGIN PRIVATE KEY-----`
-  * Followed by `-----BEGIN CERTIFICATE-----`
-* You decode it into a stream and extract both the private key and the certificate.
-
----
-
-### ✅ Final Working `initGraphClient()` Using Manual JWT Auth with PEM + Proxy
-
-```java
 private GraphServiceClient<?> initGraphClient() throws Exception {
     // 1. Setup proxy
     final InetSocketAddress proxyAddress = new InetSocketAddress(proxyHost, proxyPort);
     final Proxy graphProxy = new Proxy(Proxy.Type.HTTP, proxyAddress);
 
-    // 2. Decode base64-encoded PEM content
-    byte[] pemBytes = Base64.getDecoder().decode(encodedCertificate);
-    String pemContent = new String(pemBytes, StandardCharsets.UTF_8);
+    // 2. Decode the Base64-encoded PFX content
+    byte[] pfxBytes = Base64.getDecoder().decode(encodedCertificate);
 
-    // 3. Parse private key and certificate from PEM
-    PrivateKey privateKey = null;
-    X509Certificate certificate = null;
+    // 3. Load PKCS12 keystore
+    KeyStore keystore = KeyStore.getInstance("PKCS12");
+    keystore.load(new ByteArrayInputStream(pfxBytes), "changeit".toCharArray());  // changeit = password
 
-    StringReader pemReader = new StringReader(pemContent);
-    PemReader reader = new PemReader(pemReader);
-    PemObject pemObject;
-
-    while ((pemObject = reader.readPemObject()) != null) {
-        String type = pemObject.getType();
-        byte[] content = pemObject.getContent();
-
-        if ("PRIVATE KEY".equalsIgnoreCase(type)) {
-            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(content);
-            KeyFactory kf = KeyFactory.getInstance("RSA");
-            privateKey = kf.generatePrivate(keySpec);
-        } else if ("CERTIFICATE".equalsIgnoreCase(type)) {
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            certificate = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(content));
-        }
+    String alias = null;
+    Enumeration<String> aliases = keystore.aliases();
+    if (aliases.hasMoreElements()) {
+        alias = aliases.nextElement();
+    } else {
+        throw new Exception("No alias found in the keystore");
     }
-    reader.close();
+
+    // 4. Extract private key and certificate
+    PrivateKey privateKey = (PrivateKey) keystore.getKey(alias, "changeit".toCharArray());
+    X509Certificate certificate = (X509Certificate) keystore.getCertificate(alias);
 
     if (privateKey == null || certificate == null) {
-        throw new IllegalStateException("Failed to parse both private key and certificate from PEM");
+        throw new Exception("Failed to extract private key or certificate from keystore");
     }
 
-    // 4. Build MSAL confidential client
+    // 5. Initialize MSAL confidential client
     ConfidentialClientApplication app = ConfidentialClientApplication.builder(
             outlook_client_id,
             ClientCredentialFactory.createFromCertificate(privateKey, certificate))
             .authority("https://login.microsoftonline.com/" + outlook_tenant_id)
             .build();
 
-    // 5. Acquire access token
+    // 6. Acquire token manually
     ClientCredentialParameters parameters = ClientCredentialParameters.builder(
             Collections.singleton("https://graph.microsoft.com/.default"))
             .build();
@@ -67,53 +44,21 @@ private GraphServiceClient<?> initGraphClient() throws Exception {
     log.error("******************************************************************************************\n" +
             "ClientID: " + outlook_client_id + ", tenantId: " + outlook_tenant_id + ", token: " + token);
 
-    // 6. Custom TokenCredentialAuthProvider
+    // 7. Auth provider using manually-acquired token
     TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
             SCOPES,
             request -> Mono.just(new AccessToken(token, OffsetDateTime.now().plusHours(1)))
     );
 
-    // 7. Build OkHttp client with proxy
+    // 8. Configure Graph client with proxy
     OkHttpClient okClient = HttpClients.createDefault(authProvider)
             .newBuilder()
             .proxy(graphProxy)
             .build();
 
-    // 8. Build and return GraphServiceClient
     return GraphServiceClient
             .builder()
             .authenticationProvider(authProvider)
             .httpClient(okClient)
             .buildClient();
 }
-```
-
----
-
-### 🧱 Dependency Needed
-
-You’ll need **BouncyCastle** for `PemReader`:
-
-```xml
-<dependency>
-    <groupId>org.bouncycastle</groupId>
-    <artifactId>bcprov-jdk15on</artifactId>
-    <version>1.70</version>
-</dependency>
-<dependency>
-    <groupId>org.bouncycastle</groupId>
-    <artifactId>bcpkix-jdk15on</artifactId>
-    <version>1.70</version>
-</dependency>
-```
-
-Or if using Gradle:
-
-```groovy
-implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
-implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
-```
-
----
-
-Let me know if your PEM contains **`BEGIN ENCRYPTED PRIVATE KEY`** instead (which requires password decryption) or if it's **PKCS12 (`.pfx`)** — the parsing logic will be slightly different.
