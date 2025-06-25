@@ -1,340 +1,98 @@
-import com.azure.identity.ClientCertificateCredential;
-import com.azure.identity.ClientCertificateCredentialBuilder;
-import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
-import com.microsoft.graph.models.User;
-import com.microsoft.graph.requests.GraphServiceClient;
+Thank you! Based on your clarified request, you're asking me to **rewrite the method using Option 1**, meaning:
 
-import java.util.Base64;
-import java.util.Collections;
-import java.util.List;
+> ✅ Use the **MSAL Java `ConfidentialClientApplication`** with private key + certificate to acquire the access token manually,
+> ✅ Configure the Graph client with the **proxy**,
+> ✅ Avoid `ClientCertificateCredentialBuilder`, and instead **construct the token yourself**.
 
-public class Outlook365ListUsersExample {
-
-    private static final String CLIENT_ID = "<your-client-id>";
-    private static final String TENANT_ID = "<your-tenant-id>";
-
-    private static final String PRIVATE_KEY_PEM = """
-            -----BEGIN PRIVATE KEY-----
-            YOUR_BASE64_ENCODED_PRIVATE_KEY
-            -----END PRIVATE KEY-----
-            """;
-
-    private static final List<String> SCOPES = Collections.singletonList("https://graph.microsoft.com/.default");
-
-    public static void main(String[] args) {
-        ClientCertificateCredential credential = new ClientCertificateCredentialBuilder()
-                .clientId(CLIENT_ID)
-                .tenantId(TENANT_ID)
-                .pemCertificate(PRIVATE_KEY_PEM)
-                .build();
-
-        TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(SCOPES, credential);
-
-        GraphServiceClient<?> graphClient = GraphServiceClient
-                .builder()
-                .authenticationProvider(authProvider)
-                .buildClient();
-
-        List<User> users = graphClient
-                .users()
-                .buildRequest()
-                .top(20)  // Fetch first 20 users
-                .get()
-                .getCurrentPage();
-
-        users.forEach(user -> {
-            System.out.printf("User: %s | Email: %s | ID: %s%n",
-                    user.displayName,
-                    user.mail,
-                    user.id);
-        });
-    }
-}
-
-
-<dependencies>
-    <dependency>
-        <groupId>com.microsoft.azure</groupId>
-        <artifactId>msal4j</artifactId>
-        <version>1.14.0</version>
-    </dependency>
-    <dependency>
-        <groupId>com.azure</groupId>
-        <artifactId>azure-identity</artifactId>
-        <version>1.11.3</version>
-    </dependency>
-    <dependency>
-        <groupId>com.microsoft.graph</groupId>
-        <artifactId>microsoft-graph</artifactId>
-        <version>5.74.0</version>
-    </dependency>
-    <dependency>
-        <groupId>com.azure</groupId>
-        <artifactId>azure-core</artifactId>
-        <version>1.47.0</version>
-    </dependency>
-</dependencies>
-
------------
-
-import java.security.KeyFactory;
-import java.security.interfaces.RSAKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.time.OffsetDateTime;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import org.apache.commons.codec.binary.Hex;
-
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.azure.core.credential.TokenCredential;
-import com.azure.identity.ClientAssertionCredentialBuilder;
-import com.microsoft.graph.models.User;
-import com.microsoft.graph.requests.GraphServiceClient;
-
-public class MyService {
-
-	private static final String TENANT_ID = "[tenantId]";
-	private static final String CLIENT_ID = "[clientId]";
-	private static final String PRIVATE_KEY_BASE64 = "[private key base64 text]";
-	private static final String THUMBPRINT = "thumbprint";
-
-	public GraphServiceClient<?> getGraphClient() throws Exception {
-		byte[] encoded = Base64.getDecoder().decode(PRIVATE_KEY_BASE64);
-		PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
-		RSAKey privateKey = (RSAKey) KeyFactory.getInstance("RSA").generatePrivate(keySpec);
-
-		byte[] bytes = Hex.decodeHex(THUMBPRINT.toCharArray());
-		String x5t = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-		Map<String, Object> header = new HashMap<>();
-		header.put("x5t", x5t);
-
-		String assertion = JWT.create().withHeader(header)
-				.withAudience("https://login.microsoftonline.com/" + TENANT_ID + "/oauth2/v2.0/token")
-				.withExpiresAt(OffsetDateTime.now().plusMinutes(5).toInstant())
-				.withIssuer(CLIENT_ID)
-				.withJWTId(UUID.randomUUID().toString())
-				.withNotBefore(OffsetDateTime.now().toInstant())
-				.withSubject(CLIENT_ID)
-				.withIssuedAt(OffsetDateTime.now().toInstant())
-				.sign(Algorithm.RSA256(privateKey));
-
-		TokenCredential credential = new ClientAssertionCredentialBuilder().tenantId(TENANT_ID)
-				.clientId(CLIENT_ID)
-				.clientAssertion(() -> assertion)
-				.build();
-
-		    TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
-            Collections.singletonList("https://graph.microsoft.com/.default"), credential);
-
-    return GraphServiceClient.builder()
-            .authenticationProvider(authProvider)
-            .buildClient();
-	}
-
-	public List<User> listUsers() throws Exception {
-		GraphServiceClient<?> client = getGraphClient();
-		return client.users()
-				.buildRequest()
-				.top(20)
-				.get()
-				.getCurrentPage();
-	}
-
-	public static void main(String[] args) {
-		MyService service = new MyService();
-		try {
-			List<User> users = service.listUsers();
-			for (User user : users) {
-				System.out.println("User: " + user.displayName + ", Email: " + user.mail);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-}
-
-/*
-Gradle Dependencies:
-
-implementation 'com.azure:azure-identity:1.11.3'
-implementation 'com.microsoft.graph:microsoft-graph:5.74.0'
-implementation 'com.auth0:java-jwt:4.4.0'
-implementation 'commons-codec:commons-codec:1.17.0'
-*/
-
------------------------------------------------------------------------------------
-Yes! You can download a user's Microsoft Teams (Azure AD) profile picture using the **Microsoft Graph SDK for Java**. Here's a complete sample using `com.microsoft.graph:microsoft-graph` SDK:
+Here’s the **rewritten version of your `initGraphClient()`** method using **Option 1**:
 
 ---
 
-### ✅ Prerequisites:
-- Java 11+
-- Microsoft Graph SDK (`microsoft-graph`)
-- An access token with scope: `User.Read` or `User.ReadBasic.All`
-- User ID or UPN (e.g., `user@domain.com`)
-
----
-
-### 📦 Maven Dependency:
-```xml
-<dependency>
-  <groupId>com.microsoft.graph</groupId>
-  <artifactId>microsoft-graph</artifactId>
-  <version>5.74.0</version> <!-- Use latest -->
-</dependency>
-```
-
----
-
-### 🧪 Sample Code:
+### ✅ Rewritten `initGraphClient()` Using Manual Token Flow via MSAL
 
 ```java
-import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
-import com.microsoft.graph.requests.GraphServiceClient;
-import com.azure.identity.DeviceCodeCredentialBuilder;
-import com.azure.identity.DeviceCodeCredential;
-import com.microsoft.graph.models.ProfilePhoto;
+private GraphServiceClient<?> initGraphClient() throws Exception {
 
-import java.io.InputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.Collections;
-import okhttp3.Request;
+    // 1. Setup proxy for both MSAL and Graph client
+    final InetSocketAddress proxyAddress = new InetSocketAddress(proxyHost, proxyPort);
+    final Proxy graphProxy = new Proxy(Proxy.Type.HTTP, proxyAddress);
 
-public class TeamsProfilePictureDownloader {
+    // 2. Parse private key and certificate from base64-encoded keystore or PEM
+    PrivateKey privateKey = loadPrivateKeyFromPem();        // <-- You must implement this
+    X509Certificate certificate = loadCertificateFromPem(); // <-- You must implement this
 
-    public static void main(String[] args) {
-        String userId = "user@yourdomain.com"; // Can also be User ID (GUID)
-        String filePath = "profile_photo.jpg";
-
-        // Step 1: Authenticate with Microsoft Identity (Device Code flow used here)
-        DeviceCodeCredential credential = new DeviceCodeCredentialBuilder()
-            .clientId("<YOUR_CLIENT_ID>")
-            .tenantId("<YOUR_TENANT_ID>")
-            .challengeConsumer(challenge -> System.out.println(challenge.getMessage()))
+    // 3. Build the confidential client (manual token flow)
+    ConfidentialClientApplication app = ConfidentialClientApplication.builder(
+            outlook_client_id,
+            ClientCredentialFactory.createFromCertificate(privateKey, certificate))
+            .authority("https://login.microsoftonline.com/" + outlook_tenant_id)
             .build();
 
-        TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
-            Collections.singletonList("https://graph.microsoft.com/.default"), credential);
+    // 4. Acquire access token manually using client credentials
+    ClientCredentialParameters parameters = ClientCredentialParameters.builder(
+            Collections.singleton("https://graph.microsoft.com/.default"))
+            .build();
 
-        GraphServiceClient<Request> graphClient = GraphServiceClient.builder()
+    IAuthenticationResult result = app.acquireToken(parameters).get();
+    String token = result.accessToken();
+
+    log.error("******************************************************************************************\n" +
+            "ClientID: " + outlook_client_id + ", tenantId: " + outlook_tenant_id + ", token: " + token);
+
+    // 5. Use a custom auth provider with the token
+    TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
+            SCOPES,
+            request -> Mono.just(new AccessToken(token, OffsetDateTime.now().plusHours(1)))
+    );
+
+    // 6. Build OkHttp client with proxy
+    OkHttpClient okClient = HttpClients.createDefault(authProvider)
+            .newBuilder()
+            .proxy(graphProxy)
+            .build();
+
+    // 7. Return Graph client
+    return GraphServiceClient
+            .builder()
             .authenticationProvider(authProvider)
+            .httpClient(okClient)
             .buildClient();
-
-        try {
-            // Step 2: Call Graph API to get the photo stream
-            InputStream photoStream = graphClient.users(userId)
-                .photo()
-                .content()
-                .buildRequest()
-                .get();
-
-            // Step 3: Save the photo to file
-            try (FileOutputStream out = new FileOutputStream(filePath)) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = photoStream.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
-                }
-            }
-
-            System.out.println("Profile photo saved to " + filePath);
-
-        } catch (Exception e) {
-            System.err.println("Error downloading profile photo: " + e.getMessage());
-        }
-    }
 }
 ```
 
 ---
 
-### 📌 Notes:
-- If the user doesn't have a profile photo, this will throw a `404 Not Found`.
-- For production use, you'd typically authenticate using `ClientSecretCredential` or `ClientCertificateCredential` for a daemon app.
+### 🧩 Helper Notes
 
----
+You need to implement these two helpers:
 
-Let me know if you're using a different auth method (like `client_secret`) and I can adjust it accordingly.
+#### `loadPrivateKeyFromPem()`
 
------------------------
-To generate a **public key** from a **private key** (typically in PEM or DER format), it depends on the key algorithm (e.g., RSA, EC). Here's how you can do it:
+If you're using a Base64 PEM-encoded key (PKCS#8), use:
 
----
-
-### ✅ Option 1: **Using OpenSSL CLI** (Most common)
-
-#### 🛠️ For RSA Private Key:
-```bash
-openssl rsa -in private_key.pem -pubout -out public_key.pem
-```
-
-#### 🛠️ For EC Private Key:
-```bash
-openssl ec -in private_key.pem -pubout -out public_key.pem
-```
-
-#### 🛠️ For PKCS#8 Format Private Key:
-```bash
-openssl pkey -in private_key.pem -pubout -out public_key.pem
-```
-
-> 🔐 `private_key.pem` should be your private key file, in PEM format.
-
----
-
-### ✅ Option 2: **Java Code Example (Using BouncyCastle)**
-
-If you'd prefer to do this in Java:
-
-#### 📦 Dependencies:
-```xml
-<dependency>
-  <groupId>org.bouncycastle</groupId>
-  <artifactId>bcprov-jdk15on</artifactId>
-  <version>1.70</version>
-</dependency>
-```
-
-#### 🔍 Java Code (for RSA):
 ```java
-import java.io.FileReader;
-import java.security.*;
-import java.security.spec.*;
-import java.util.Base64;
-
-import org.bouncycastle.util.io.pem.PemReader;
-
-public class PrivateToPublicKey {
-
-    public static void main(String[] args) throws Exception {
-        // Load private key
-        PemReader pemReader = new PemReader(new FileReader("private_key.pem"));
-        byte[] content = pemReader.readPemObject().getContent();
-        pemReader.close();
-
-        PKCS8EncodedKeySpec privateSpec = new PKCS8EncodedKeySpec(content);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PrivateKey privateKey = keyFactory.generatePrivate(privateSpec);
-
-        // Derive public key
-        RSAPrivateCrtKeySpec privSpec = keyFactory.getKeySpec(privateKey, RSAPrivateCrtKeySpec.class);
-        RSAPublicKeySpec publicSpec = new RSAPublicKeySpec(privSpec.getModulus(), privSpec.getPublicExponent());
-        PublicKey publicKey = keyFactory.generatePublic(publicSpec);
-
-        // Output public key (Base64)
-        String encoded = Base64.getEncoder().encodeToString(publicKey.getEncoded());
-        System.out.println("Public Key (Base64):\n" + encoded);
-    }
+private PrivateKey loadPrivateKeyFromPem() throws Exception {
+    byte[] keyBytes = Base64.getDecoder().decode(encodedPrivateKey);
+    PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+    KeyFactory kf = KeyFactory.getInstance("RSA");
+    return kf.generatePrivate(spec);
 }
 ```
 
+#### `loadCertificateFromPem()`
+
+If you're using a Base64 X.509 certificate:
+
+```java
+private X509Certificate loadCertificateFromPem() throws Exception {
+    byte[] certBytes = Base64.getDecoder().decode(encodedCert);
+    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+    return (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certBytes));
+}
+```
+
+Let me know if your cert is stored in a `.pfx`/`.p12` file or a PKCS12 keystore — I can adjust these loaders accordingly.
+
 ---
 
-Would you like help converting a specific private key file you have (e.g., `id_rsa`, `.pem`, `.key`)? If yes, you can tell me the format or share a sample structure (no real keys of course), and I’ll tailor the steps.
+Would you like me to help build a loader from `.pfx` (PKCS12) with password instead?
