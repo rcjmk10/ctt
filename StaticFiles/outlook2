@@ -62,3 +62,142 @@ private GraphServiceClient<?> initGraphClient() throws Exception {
             .httpClient(okClient)
             .buildClient();
 }
+
+
+
+
+
+Here's your modified `initGraphClient()` method using **Option 3**, which:
+
+1. **Manually builds a client assertion (JWT)**
+2. **Signs it with your extracted private key**
+3. **Uses OkHttp to call the Azure AD token endpoint**
+4. **Injects the token into Microsoft Graph client**
+
+---
+
+### ✅ Modified `initGraphClient()` (Manual Token Request)
+
+```java
+private GraphServiceClient<?> initGraphClient() throws Exception {
+    // 1. Setup proxy
+    final InetSocketAddress proxyAddress = new InetSocketAddress(proxyHost, proxyPort);
+    final Proxy graphProxy = new Proxy(Proxy.Type.HTTP, proxyAddress);
+
+    // 2. Decode base64-encoded PFX
+    byte[] pfxBytes = Base64.getDecoder().decode(encodedCertificate);
+    KeyStore keystore = KeyStore.getInstance("PKCS12");
+    keystore.load(new ByteArrayInputStream(pfxBytes), "changeit".toCharArray());
+
+    String alias = keystore.aliases().nextElement();
+    PrivateKey privateKey = (PrivateKey) keystore.getKey(alias, "changeit".toCharArray());
+    X509Certificate certificate = (X509Certificate) keystore.getCertificate(alias);
+
+    if (privateKey == null || certificate == null) {
+        throw new Exception("Failed to extract private key or certificate from keystore");
+    }
+
+    // 3. Build JWT assertion for Azure AD
+    String clientAssertion = buildClientAssertion(outlook_client_id, outlook_tenant_id, privateKey, certificate);
+
+    // 4. Build token request with OkHttp
+    OkHttpClient okHttpClient = new OkHttpClient.Builder().proxy(graphProxy).build();
+    RequestBody body = new FormBody.Builder()
+            .add("client_id", outlook_client_id)
+            .add("scope", "https://graph.microsoft.com/.default")
+            .add("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+            .add("client_assertion", clientAssertion)
+            .add("grant_type", "client_credentials")
+            .build();
+
+    Request request = new Request.Builder()
+            .url("https://login.microsoftonline.com/" + outlook_tenant_id + "/oauth2/v2.0/token")
+            .post(body)
+            .build();
+
+    try (Response response = okHttpClient.newCall(request).execute()) {
+        if (!response.isSuccessful()) {
+            throw new IOException("Token request failed: " + response.code() + " - " + response.body().string());
+        }
+        String json = response.body().string();
+        String token = new JSONObject(json).getString("access_token");
+
+        // 5. Inject token into Graph client
+        TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
+                SCOPES,
+                req -> Mono.just(new AccessToken(token, OffsetDateTime.now().plusHours(1)))
+        );
+
+        OkHttpClient okClient = HttpClients.createDefault(authProvider)
+                .newBuilder()
+                .proxy(graphProxy)
+                .build();
+
+        return GraphServiceClient.builder()
+                .authenticationProvider(authProvider)
+                .httpClient(okClient)
+                .buildClient();
+    }
+}
+```
+
+---
+
+### 🔧 `buildClientAssertion(...)` Helper
+
+```java
+private String buildClientAssertion(String clientId, String tenantId,
+                                    PrivateKey privateKey, X509Certificate certificate) throws Exception {
+
+    long now = System.currentTimeMillis() / 1000L;
+    JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+            .issuer(clientId)
+            .subject(clientId)
+            .audience("https://login.microsoftonline.com/" + tenantId + "/v2.0")
+            .issueTime(new Date(now * 1000))
+            .expirationTime(new Date((now + 600) * 1000)) // 10 mins
+            .jwtID(UUID.randomUUID().toString())
+            .build();
+
+    JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
+            .keyID(getKeyId(certificate))
+            .type(JOSEObjectType.JWT)
+            .build();
+
+    SignedJWT signedJWT = new SignedJWT(header, claimsSet);
+    signedJWT.sign(new RSASSASigner(privateKey));
+    return signedJWT.serialize();
+}
+
+private String getKeyId(X509Certificate certificate) throws Exception {
+    MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+    byte[] thumbprint = sha1.digest(certificate.getEncoded());
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(thumbprint);
+}
+```
+
+---
+
+### 🧩 Dependencies (Maven)
+
+```xml
+<dependency>
+    <groupId>com.nimbusds</groupId>
+    <artifactId>nimbus-jose-jwt</artifactId>
+    <version>9.37.3</version>
+</dependency>
+<dependency>
+    <groupId>com.squareup.okhttp3</groupId>
+    <artifactId>okhttp</artifactId>
+    <version>4.12.0</version>
+</dependency>
+<dependency>
+    <groupId>org.json</groupId>
+    <artifactId>json</artifactId>
+    <version>20231013</version>
+</dependency>
+```
+
+---
+
+Let me know if you'd prefer a JWT without `kid`, or if your certificate doesn't work with SHA-1 thumbprint.
