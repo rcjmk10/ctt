@@ -200,4 +200,103 @@ private String getKeyId(X509Certificate certificate) throws Exception {
 
 ---
 
-Let me know if you'd prefer a JWT without `kid`, or if your certificate doesn't work with SHA-1 thumbprint.
+Yes — here’s the **complete list of Java imports** needed for the manually signed JWT + OkHttp Microsoft Graph client setup:
+
+---
+
+### ✅ Imports for `initGraphClient()` and `buildClientAssertion(...)`
+
+```java
+// Java core
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.security.KeyFactory;
+import java.security.KeyStore;
+import java.security.MessageDigest;
+import java.security.PrivateKey;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.UUID;
+
+// OkHttp
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+// JSON
+import org.json.JSONObject;
+
+// Microsoft Graph
+import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.models.extensions.GraphServiceClient;
+import com.microsoft.graph.requests.GraphServiceClient;
+import com.azure.core.credential.AccessToken;
+import reactor.core.publisher.Mono;
+
+// Nimbus JOSE JWT
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.crypto.RSASSASigner;
+```
+
+---
+
+### 📦 Maven Dependencies Summary
+
+Ensure you’ve added the following in your `pom.xml`:
+
+```xml
+<!-- JWT generation and signing -->
+<dependency>
+    <groupId>com.nimbusds</groupId>
+    <artifactId>nimbus-jose-jwt</artifactId>
+    <version>9.37.3</version>
+</dependency>
+
+<!-- Microsoft Graph SDK -->
+<dependency>
+    <groupId>com.microsoft.graph</groupId>
+    <artifactId>microsoft-graph</artifactId>
+    <version>5.65.0</version>
+</dependency>
+
+<!-- Azure Core for AccessToken (used in auth provider) -->
+<dependency>
+    <groupId>com.azure</groupId>
+    <artifactId>azure-core</artifactId>
+    <version>1.46.0</version>
+</dependency>
+
+<!-- OkHttp client -->
+<dependency>
+    <groupId>com.squareup.okhttp3</groupId>
+    <artifactId>okhttp</artifactId>
+    <version>4.12.0</version>
+</dependency>
+
+<!-- JSON for parsing token response -->
+<dependency>
+    <groupId>org.json</groupId>
+    <artifactId>json</artifactId>
+    <version>20231013</version>
+</dependency>
+```
+
+---
+
+Let me know if you're using Gradle or need help adapting this to Spring Boot config or async workflows.
+
