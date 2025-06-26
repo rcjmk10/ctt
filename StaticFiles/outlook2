@@ -310,3 +310,4 @@ private String getKeyId(X509Certificate certificate) throws Exception {
     }
     return hexString.toString();
 }
+return Base64.getUrlEncoder().withoutPadding().encodeToString(sha1.digest(certificate.getEncoded()));
