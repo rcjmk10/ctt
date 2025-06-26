@@ -311,3 +311,78 @@ private String getKeyId(X509Certificate certificate) throws Exception {
     return hexString.toString();
 }
 return Base64.getUrlEncoder().withoutPadding().encodeToString(sha1.digest(certificate.getEncoded()));
+
+===
+
+private GraphServiceClient<?> initGraphClient() throws Exception {
+    final String clientId = outlook_client_id;
+    final String tenantId = outlook_tenant_id;
+
+    final InetSocketAddress proxyAddress = new InetSocketAddress(proxyHost, proxyPort);
+    final Proxy graphProxy = new Proxy(Proxy.Type.HTTP, proxyAddress);
+    final int connectTimeoutMs = 10000; // Or inject from config
+
+    // Step 1: Build Key ID from thumbprint
+    byte[] decodedThumbPrint = Base64.getDecoder().decode(base64ThumbPrint.getBytes(StandardCharsets.UTF_8));
+    byte[] decodedHex = Hex.decodeHex(new String(decodedThumbPrint, StandardCharsets.UTF_8));
+    String keyID = Base64URL.encode(decodedHex).toString();
+
+    // Step 2: Build SignJwtRequest (delegated to secretsConfig)
+    SignJwtRequest signJwtRequest = SignJwtRequest.builder()
+            .clientId(clientId)
+            .tenantId(tenantId)
+            .targetAudience("https://login.microsoftonline.com/" + tenantId + "/oauth2/token")
+            .keyId(keyID)
+            .secondsToExpire(600)
+            .build();
+
+    String clientAssertion = secretsConfig.signJWT(signJwtRequest);
+
+    // Step 3: Acquire token with client assertion via OkHttp
+    OkHttpClient okHttpClient = new OkHttpClient.Builder()
+            .proxy(graphProxy)
+            .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
+            .readTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
+            .build();
+
+    RequestBody body = new FormBody.Builder()
+            .add("client_id", clientId)
+            .add("scope", "https://graph.microsoft.com/.default")
+            .add("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+            .add("client_assertion", clientAssertion)
+            .add("grant_type", "client_credentials")
+            .build();
+
+    Request request = new Request.Builder()
+            .url("https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/token")
+            .post(body)
+            .build();
+
+    String accessToken;
+    try (Response response = okHttpClient.newCall(request).execute()) {
+        if (!response.isSuccessful()) {
+            throw new IOException("Token request failed: " + response.code() + " - " + response.body().string());
+        }
+        String json = response.body().string();
+        accessToken = new JSONObject(json).getString("access_token");
+    }
+
+    // Step 4: Inject token into Microsoft Graph client
+    TokenCredentialAuthProvider authProvider = new TokenCredentialAuthProvider(
+            SCOPES,
+            req -> Mono.just(new AccessToken(accessToken, OffsetDateTime.now().plusHours(1)))
+    );
+
+    OkHttpClient graphOkClient = HttpClients.createDefault(authProvider)
+            .newBuilder()
+            .proxy(graphProxy)
+            .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
+            .readTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
+            .build();
+
+    return GraphServiceClient.builder()
+            .authenticationProvider(authProvider)
+            .httpClient(graphOkClient)
+            .buildClient();
+}
+
