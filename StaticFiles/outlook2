@@ -300,3 +300,13 @@ Ensure you’ve added the following in your `pom.xml`:
 
 Let me know if you're using Gradle or need help adapting this to Spring Boot config or async workflows.
 459F2082C03D6A8225950899D9AD665E39088CC7
+private String getKeyId(X509Certificate certificate) throws Exception {
+    MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+    byte[] thumbprint = sha1.digest(certificate.getEncoded());
+
+    StringBuilder hexString = new StringBuilder();
+    for (byte b : thumbprint) {
+        hexString.append(String.format("%02X", b)); // UPPERCASE hex
+    }
+    return hexString.toString();
+}
