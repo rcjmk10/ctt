@@ -1,0 +1,88 @@
+✅ Step-by-Step Plan
+1. Understand What Canvax Provides
+Before translating UI, understand what Canvax Design System offers:
+
+Components (e.g., Button, Input, Card, Tabs)
+
+Theming (colors, spacing, typography)
+
+Layout utilities (e.g., Grid, Stack)
+
+Accessibility and brand compliance
+
+🔍 Goal: Map Figma elements to Canvax components wherever possible.
+
+2. Manually Measure & Map Figma Elements
+Since you can't inspect or export from Figma:
+
+Zoom in and manually note down spacing, typography, and layout dimensions.
+
+Use the ruler and pixel grid in Figma to estimate padding, margins, font sizes, etc.
+
+Identify reusable elements like: header bar, sidebar, form fields, buttons, etc.
+
+Group by layout structure: Header, Sidebar, Content Section, Modals, etc.
+
+🛠️ Use your browser's "full screen capture" or screenshot tools to save reference images while you code.
+
+3. Create a Design-to-Code Mapping Template
+Create a simple table or doc to translate design into code:
+
+Figma Element	Canvax Component	Notes
+Primary Button	<Button variant="primary">	Confirm size/color match
+Input Field	<TextField />	Use label & helperText
+Card-style box	<Paper elevation={2}> or <Card>	Add padding/margin
+Page layout	<Grid> or <Box> with spacing	Responsive setup
+
+4. Start Building Components Bottom-Up
+Use atomic design principles:
+
+Build atoms: Button, Label, InputField
+
+Then molecules: Search bar, form section
+
+Then organisms: Card lists, ProfilePanel, NavBar
+
+Finally pages and routing
+
+Structure your React app like:
+
+css
+Copy
+Edit
+src/
+  components/
+    Button/
+    Input/
+    CardSection/
+  pages/
+    Dashboard/
+    Profile/
+  App.tsx
+  theme/
+    index.ts (Canvax theme overrides if needed)
+5. Use Canvax Starter Kits & Patterns
+Canvax may have available boilerplate/starter templates for layout and authentication patterns (check Scotiabank internal GitHub or Bitbucket). Use those as a scaffold.
+
+If not:
+
+Use MUI (Material UI) as base, since Canvax extends MUI.
+
+Apply Canvax theme via ThemeProvider if available.
+
+tsx
+Copy
+Edit
+import { ThemeProvider } from '@scotiabank/canvax';
+import { CssBaseline } from '@mui/material';
+
+<ThemeProvider>
+  <CssBaseline />
+  <App />
+</ThemeProvider>
+6. Use Screen Grab + Overlay Comparison Tools
+Use tools like:
+
+📸 PixelSnap / PerfectPixel Chrome Extension: to overlay screenshot with your React result
+
+🧩 Measure for Figma (if you later get Inspect access)
