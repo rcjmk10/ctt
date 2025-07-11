@@ -86,3 +86,156 @@ Use tools like:
 📸 PixelSnap / PerfectPixel Chrome Extension: to overlay screenshot with your React result
 
 🧩 Measure for Figma (if you later get Inspect access)
+
+<AdminOutOfOfficePage>
+├── <Header />             // Scotiabank brand bar (assume global)
+├── <Tabs />              // My Delegate / Admin
+├── <BranchSelector />
+├── <NotificationToggle />
+├── <OOOTableSection>
+│   ├── <SearchBar />
+│   ├── <DataTable />
+│   ├── <BulkActionsToolbar />
+│   ├── <Pagination />
+├── <CreateNewSection />   // Accordion/Expandable
+</AdminOutOfOfficePage>
+
+
+💡 Component Mapping (Canvax or MUI)
+UI Element	Suggested Component
+Tabs ("My Delegate", "Admin")	Tabs, TabPanel from Canvax or MUI
+Dropdown (Branch, Items/page)	Select, MenuItem
+Notification toggle	Switch + FormControlLabel
+Search bar	TextField with InputAdornment (Search icon)
+Table	Table, TableHead, TableBody, Checkbox
+Inline Emphasis links	Link or styled Typography
+Toolbar (Edit/Delete/Export)	ButtonGroup, IconButton + icons
+Pagination	Pagination (MUI or custom Canvax if available)
+Expandable "Create New"	Accordion or ExpansionPanel
+
+🧪 Starter Implementation Skeleton (React + Canvax)
+tsx
+Copy
+Edit
+import {
+  Box,
+  Tabs,
+  Tab,
+  TextField,
+  InputAdornment,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Checkbox,
+  Button,
+  Select,
+  MenuItem,
+  Pagination,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Typography,
+  FormControlLabel,
+  Switch,
+} from '@scotiabank/canvax'; // or from '@mui/material' if Canvax re-exports
+
+import SearchIcon from '@mui/icons-material/Search';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+
+function AdminOutOfOfficePage() {
+  const [tab, setTab] = useState(1);
+  const [branch, setBranch] = useState('');
+  const [notifyEnabled, setNotifyEnabled] = useState(true);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  return (
+    <Box p={4}>
+      {/* Tabs */}
+      <Tabs value={tab} onChange={(e, v) => setTab(v)}>
+        <Tab label="My Delegate" />
+        <Tab label="Admin" />
+      </Tabs>
+
+      {/* Branch & Notification Toggle */}
+      <Box display="flex" justifyContent="space-between" mt={3} alignItems="center">
+        <Select value={branch} onChange={(e) => setBranch(e.target.value)} displayEmpty>
+          <MenuItem value=""><em>Branch</em></MenuItem>
+          <MenuItem value="A">Branch A</MenuItem>
+          <MenuItem value="B">Branch B</MenuItem>
+        </Select>
+
+        <FormControlLabel
+          control={<Switch checked={notifyEnabled} onChange={(e) => setNotifyEnabled(e.target.checked)} />}
+          label="Enable Notifications"
+        />
+      </Box>
+
+      {/* Search + Table */}
+      <Box mt={4}>
+        <Typography variant="h6">Manage Current Out of Office</Typography>
+
+        <TextField
+          variant="outlined"
+          placeholder="Search across the table"
+          fullWidth
+          margin="normal"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        {/* Data Table */}
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox"><Checkbox /></TableCell>
+              <TableCell>Start Date</TableCell>
+              <TableCell>End Date</TableCell>
+              <TableCell>Application</TableCell>
+              <TableCell>Officer</TableCell>
+              <TableCell>Delegate</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {/* Map rows here */}
+          </TableBody>
+        </Table>
+
+        {/* Footer Toolbar */}
+        <Box mt={2} display="flex" justifyContent="space-between" alignItems="center">
+          <Typography>0 of 200 selected</Typography>
+          <Box>
+            <Button>Clear all</Button>
+            <Button>Edit</Button>
+            <Button>Delete</Button>
+            <Button>Export / Print</Button>
+          </Box>
+        </Box>
+
+        {/* Pagination */}
+        <Box mt={2} display="flex" justifyContent="flex-end">
+          <Pagination count={10} page={1} />
+        </Box>
+      </Box>
+
+      {/* Create New Out of Office */}
+      <Box mt={4}>
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography>Create New Out of Office</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {/* Add form here */}
+          </AccordionDetails>
+        </Accordion>
+      </Box>
+    </Box>
+  );
+}
+
